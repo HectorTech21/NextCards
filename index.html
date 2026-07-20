@@ -13,14 +13,15 @@
   <link rel="stylesheet" href="assets/css/editor.css">
   <link rel="stylesheet" href="assets/css/templates.css">
   <link rel="stylesheet" href="assets/css/analytics.css">
+  <link rel="stylesheet" href="assets/css/settings.css">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Saltar al contenido</a>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar" aria-label="Navegación principal">
       <div class="brand">
-        <span class="brand-mark"><img src="assets/img/logos/lognext-symbol-negative.svg" alt=""></span>
-        <span><strong>NextCards</strong><small>Digital cards by Lognext</small></span>
+        <span class="brand-mark"><img src="assets/img/logos/lognext-symbol-negative.svg" alt="" data-app-logo></span>
+        <span><strong data-app-name>NextCards</strong><small data-app-subtitle>Digital cards by Lognext</small></span>
       </div>
       <nav class="main-nav">
         <button class="nav-item active" type="button" data-section="cards"><span data-icon="cards"></span>Tarjetas</button>
@@ -218,6 +219,182 @@
             <section class="analytics-panel"><header class="analytics-panel-heading"><div><span class="eyebrow">Dispositivos</span><h2>Tipo de dispositivo</h2><p>Clasificación aproximada según el ancho de pantalla.</p></div></header><div class="analytics-bars" id="analytics-device-bars"></div></section>
           </div>
         </section>
+
+        <section class="settings-view" id="settings-view" aria-labelledby="settings-title" hidden>
+          <header class="settings-hero">
+            <div>
+              <span class="eyebrow">Preferencias locales</span>
+              <h1 id="settings-title">Configuración</h1>
+              <p>Personaliza NextCards, define los valores por defecto y protege tus datos.</p>
+            </div>
+            <div class="settings-header-actions">
+              <span class="settings-save-state" id="settings-save-state" role="status">Todos los cambios guardados</span>
+              <button class="button button-secondary" id="settings-discard" type="button" disabled>Descartar</button>
+              <button class="button button-primary" id="settings-save" type="submit" form="settings-form" disabled><span data-icon="save"></span>Guardar cambios</button>
+            </div>
+          </header>
+
+          <div class="settings-layout">
+            <nav class="settings-nav" aria-label="Apartados de configuración" role="tablist" aria-orientation="vertical">
+              <button type="button" role="tab" aria-selected="true" aria-controls="settings-general" id="settings-tab-general" data-settings-tab="general"><span data-icon="settings"></span><span><strong>General</strong><small>Idioma, nombres y zona horaria</small></span></button>
+              <button type="button" role="tab" aria-selected="false" aria-controls="settings-appearance" id="settings-tab-appearance" data-settings-tab="appearance"><span data-icon="image"></span><span><strong>Apariencia y marca</strong><small>Colores, logo y densidad</small></span></button>
+              <button type="button" role="tab" aria-selected="false" aria-controls="settings-cards" id="settings-tab-cards" data-settings-tab="cards"><span data-icon="cards"></span><span><strong>Tarjetas</strong><small>Valores por defecto y salida</small></span></button>
+              <button type="button" role="tab" aria-selected="false" aria-controls="settings-data" id="settings-tab-data" data-settings-tab="data"><span data-icon="database"></span><span><strong>Datos y copias</strong><small>Exportar, importar y restaurar</small></span></button>
+              <button type="button" role="tab" aria-selected="false" aria-controls="settings-privacy" id="settings-tab-privacy" data-settings-tab="privacy"><span data-icon="lock"></span><span><strong>Privacidad</strong><small>Visibilidad y analítica</small></span></button>
+              <button type="button" role="tab" aria-selected="false" aria-controls="settings-system" id="settings-tab-system" data-settings-tab="system"><span data-icon="check"></span><span><strong>Información</strong><small>Versiones e integridad</small></span></button>
+            </nav>
+
+            <form class="settings-form" id="settings-form" novalidate>
+              <section class="settings-panel" id="settings-general" role="tabpanel" aria-labelledby="settings-tab-general" data-settings-panel="general">
+                <header><span class="settings-section-icon"><span data-icon="settings"></span></span><div><h2>General</h2><p>Identidad de la aplicación y formato de los datos.</p></div><button class="text-button" type="button" data-settings-reset="general">Restablecer bloque</button></header>
+                <div class="settings-card settings-grid two-columns">
+                  <label>Nombre de la aplicación<input type="text" data-setting="general.appName" maxlength="50" required><small class="field-error" data-settings-error="general.appName"></small></label>
+                  <label>Subtítulo<input type="text" data-setting="general.appSubtitle" maxlength="90" required><small class="field-error" data-settings-error="general.appSubtitle"></small></label>
+                  <label>Idioma de la interfaz<select data-setting="general.language"><option value="es">Español</option><option value="en" disabled>English · preparado para traducción</option><option value="fr" disabled>Français · preparado para traducción</option></select><small>Solo español está operativo en esta versión.</small></label>
+                  <label>Formato de nombre<select data-setting="general.nameFormat"><option value="first-last">Nombre Apellidos</option><option value="last-first">Apellidos, Nombre</option></select></label>
+                  <label class="span-2">Zona horaria<select id="settings-timezone" data-setting="general.timezone"></select><small>Se usa para fechas de actividad, copias y auditoría local.</small></label>
+                </div>
+              </section>
+
+              <section class="settings-panel" id="settings-appearance" role="tabpanel" aria-labelledby="settings-tab-appearance" data-settings-panel="appearance" hidden>
+                <header><span class="settings-section-icon"><span data-icon="image"></span></span><div><h2>Apariencia y marca</h2><p>Ajusta la interfaz con recursos y colores de la identidad corporativa.</p></div><button class="text-button" type="button" data-settings-reset="appearance">Restablecer bloque</button></header>
+                <div class="settings-card">
+                  <h3>Logo de la aplicación</h3><p class="settings-help">Selecciona un recurso existente del proyecto. No se crean copias del archivo.</p>
+                  <div class="settings-logo-options" id="settings-logo-options"></div>
+                </div>
+                <div class="settings-card">
+                  <div class="settings-card-title-row"><div><h3>Paleta global</h3><p class="settings-help">Los contrastes de interfaz y QR se validan antes de guardar.</p></div><button class="button button-secondary" type="button" data-settings-reset-colors>Restaurar colores Lognext</button></div>
+                  <div class="settings-color-grid">
+                    <label>Principal<div class="settings-color-field"><input type="color" data-color-for="appearance.primaryColor"><input type="text" data-setting="appearance.primaryColor" pattern="#[0-9A-Fa-f]{6}" maxlength="7"></div><small class="field-error" data-settings-error="appearance.primaryColor"></small></label>
+                    <label>Acento<div class="settings-color-field"><input type="color" data-color-for="appearance.accentColor"><input type="text" data-setting="appearance.accentColor" pattern="#[0-9A-Fa-f]{6}" maxlength="7"></div><small class="field-error" data-settings-error="appearance.accentColor"></small></label>
+                    <label>Fondo claro<div class="settings-color-field"><input type="color" data-color-for="appearance.lightBackground"><input type="text" data-setting="appearance.lightBackground" pattern="#[0-9A-Fa-f]{6}" maxlength="7"></div><small class="field-error" data-settings-error="appearance.lightBackground"></small></label>
+                    <label>Fondo oscuro<div class="settings-color-field"><input type="color" data-color-for="appearance.darkBackground"><input type="text" data-setting="appearance.darkBackground" pattern="#[0-9A-Fa-f]{6}" maxlength="7"></div><small class="field-error" data-settings-error="appearance.darkBackground"></small></label>
+                    <label>Neutral<div class="settings-color-field"><input type="color" data-color-for="appearance.neutralColor"><input type="text" data-setting="appearance.neutralColor" pattern="#[0-9A-Fa-f]{6}" maxlength="7"></div><small class="field-error" data-settings-error="appearance.neutralColor"></small></label>
+                  </div>
+                </div>
+                <div class="settings-card settings-grid three-columns">
+                  <label>Densidad<select data-setting="appearance.density"><option value="comfortable">Cómoda</option><option value="compact">Compacta</option></select></label>
+                  <label>Redondeado<select data-setting="appearance.borderRadius"><option value="soft">Suave</option><option value="medium">Medio</option><option value="straight">Recto</option></select></label>
+                  <label>Sombras<select data-setting="appearance.shadowLevel"><option value="none">Sin sombras</option><option value="subtle">Sutiles</option><option value="elevated">Elevadas</option></select></label>
+                </div>
+              </section>
+
+              <section class="settings-panel" id="settings-cards" role="tabpanel" aria-labelledby="settings-tab-cards" data-settings-panel="cards" hidden>
+                <header><span class="settings-section-icon"><span data-icon="cards"></span></span><div><h2>Tarjetas</h2><p>Define el comportamiento de las nuevas tarjetas y sus exportaciones.</p></div><button class="text-button" type="button" data-settings-reset="cards">Restablecer bloque</button></header>
+                <div class="settings-card settings-grid two-columns">
+                  <label>Plantilla predeterminada<select id="settings-default-template" data-setting="cards.defaultTemplateId"></select><small>Solo afecta a las tarjetas creadas a partir de ahora.</small></label>
+                  <label>Estado inicial<select data-setting="cards.defaultStatus"><option value="active">Activa</option><option value="draft">Borrador</option></select></label>
+                </div>
+                <div class="settings-card">
+                  <h3>Campos visibles por defecto</h3><p class="settings-help">Las tarjetas existentes mantienen su configuración individual.</p>
+                  <div class="settings-toggle-grid">
+                    <label><input type="checkbox" data-setting="cards.defaultVisibleFields.photo"><span>Fotografía</span></label>
+                    <label><input type="checkbox" data-setting="cards.defaultVisibleFields.jobTitle"><span>Cargo</span></label>
+                    <label><input type="checkbox" data-setting="cards.defaultVisibleFields.department"><span>Departamento</span></label>
+                    <label><input type="checkbox" data-setting="cards.defaultVisibleFields.city"><span>Ciudad</span></label>
+                    <label><input type="checkbox" data-setting="cards.defaultVisibleFields.email"><span>Email</span></label>
+                    <label><input type="checkbox" data-setting="cards.defaultVisibleFields.phone"><span>Teléfono</span></label>
+                    <label><input type="checkbox" data-setting="cards.defaultVisibleFields.linkedin"><span>LinkedIn</span></label>
+                    <label><input type="checkbox" data-setting="cards.defaultVisibleFields.website"><span>Web</span></label>
+                    <label><input type="checkbox" data-setting="cards.defaultVisibleFields.bio"><span>Biografía</span></label>
+                  </div>
+                </div>
+                <div class="settings-card">
+                  <h3>Orden de acciones públicas</h3><p class="settings-help">Usa las flechas para ordenar los botones. Las acciones sin datos se ocultan automáticamente.</p>
+                  <ol class="settings-order-list" id="settings-action-order"></ol>
+                </div>
+                <div class="settings-card settings-subsection">
+                  <h3>Código QR</h3>
+                  <div class="settings-grid two-columns">
+                    <label>Tamaño<select data-setting="cards.qr.size"><option value="small">Pequeño</option><option value="medium">Medio</option><option value="large">Grande</option></select></label>
+                    <label>Corrección de errores<select data-setting="cards.qr.errorCorrection"><option value="L">L · 7%</option><option value="M">M · 15%</option><option value="Q">Q · 25%</option><option value="H">H · 30%</option></select></label>
+                    <label>Color oscuro<div class="settings-color-field"><input type="color" data-color-for="cards.qr.darkColor"><input type="text" data-setting="cards.qr.darkColor" maxlength="7"></div><small class="field-error" data-settings-error="cards.qr.darkColor"></small></label>
+                    <label>Color claro<div class="settings-color-field"><input type="color" data-color-for="cards.qr.lightColor"><input type="text" data-setting="cards.qr.lightColor" maxlength="7"></div><small class="field-error" data-settings-error="cards.qr.lightColor"></small></label>
+                  </div>
+                </div>
+                <div class="settings-card settings-subsection">
+                  <h3>Contacto VCF</h3>
+                  <div class="settings-toggle-grid">
+                    <label><input type="checkbox" data-setting="cards.vcf.includeJobTitle"><span>Incluir cargo</span></label>
+                    <label><input type="checkbox" data-setting="cards.vcf.includeCompany"><span>Incluir empresa</span></label>
+                    <label><input type="checkbox" data-setting="cards.vcf.includeWebsite"><span>Incluir web</span></label>
+                    <label><input type="checkbox" data-setting="cards.vcf.includeLinkedin"><span>Incluir LinkedIn</span></label>
+                    <label><input type="checkbox" data-setting="cards.vcf.includeCity"><span>Incluir ciudad</span></label>
+                    <label><input type="checkbox" data-setting="cards.vcf.includeCorporateNote"><span>Añadir nota corporativa</span></label>
+                  </div>
+                </div>
+                <div class="settings-card settings-subsection">
+                  <h3>Slug público</h3>
+                  <div class="settings-toggle-grid">
+                    <label><input type="checkbox" data-setting="cards.slug.autoGenerate"><span>Generar automáticamente</span></label>
+                    <label><input type="checkbox" data-setting="cards.slug.allowManualEdit"><span>Permitir edición manual</span></label>
+                    <label><input type="checkbox" data-setting="cards.slug.lowercase"><span>Convertir a minúsculas</span></label>
+                    <label><input type="checkbox" data-setting="cards.slug.spacesToHyphens"><span>Sustituir espacios por guiones</span></label>
+                  </div><small class="field-error" data-settings-error="cards.slug.autoGenerate"></small>
+                </div>
+                <div class="settings-card settings-subsection">
+                  <div class="settings-subsection-heading"><div><span class="eyebrow">Página pública</span><h3>Marca, acciones y pie</h3></div></div>
+                  <div class="settings-grid two-columns">
+                    <label>Empresa<input type="text" data-setting="publicCard.companyName" maxlength="70"></label>
+                    <label>Web corporativa<input type="url" data-setting="publicCard.companyUrl" maxlength="220"><small class="field-error" data-settings-error="publicCard.companyUrl"></small></label>
+                    <label class="span-2">Tagline<input type="text" data-setting="publicCard.tagline" maxlength="140"></label>
+                    <label>Fuente del título<select data-setting="publicCard.titleSource"><option value="app">Nombre de la aplicación</option><option value="company">Nombre de empresa</option></select></label>
+                  </div>
+                  <div class="settings-toggle-grid settings-public-toggles">
+                    <label><input type="checkbox" data-setting="publicCard.showCompanyLogo"><span>Logo corporativo</span></label>
+                    <label><input type="checkbox" data-setting="publicCard.showCompanyLink"><span>Enlace corporativo</span></label>
+                    <label><input type="checkbox" data-setting="publicCard.showPoweredBy"><span>“Powered by”</span></label>
+                    <label><input type="checkbox" data-setting="publicCard.buttons.saveContact"><span>Guardar contacto</span></label>
+                    <label><input type="checkbox" data-setting="publicCard.buttons.share"><span>Compartir</span></label>
+                    <label><input type="checkbox" data-setting="publicCard.buttons.copyLink"><span>Copiar enlace</span></label>
+                    <label><input type="checkbox" data-setting="publicCard.buttons.showQr"><span>Mostrar QR</span></label>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-panel" id="settings-data" role="tabpanel" aria-labelledby="settings-tab-data" data-settings-panel="data" hidden>
+                <header><span class="settings-section-icon"><span data-icon="database"></span></span><div><h2>Datos y copias</h2><p>Crea una copia portable o reinicializa solo los datos de NextCards.</p></div></header>
+                <div class="settings-card settings-data-card"><div><span class="settings-data-icon"><span data-icon="download"></span></span><div><h3>Copia de seguridad JSON</h3><p>Incluye tarjetas, plantillas personalizadas, configuración, versiones y fecha de exportación. No incluye analítica.</p></div></div><button class="button button-secondary" type="button" data-settings-action="export-backup">Exportar copia</button></div>
+                <div class="settings-card settings-data-card"><div><span class="settings-data-icon"><span data-icon="upload"></span></span><div><h3>Importar copia</h3><p>El archivo se valida antes de ofrecer reemplazar o fusionar. Si falla, se revierte el cambio completo.</p></div></div><button class="button button-secondary" type="button" data-settings-action="choose-backup">Seleccionar JSON</button><input id="settings-import-file" type="file" accept="application/json,.json" hidden></div>
+                <div class="settings-card settings-data-card"><div><span class="settings-data-icon"><span data-icon="download"></span></span><div><h3>Listado CSV</h3><p>Exporta una tabla UTF-8 de las tarjetas actuales para revisión administrativa.</p></div></div><button class="button button-secondary" type="button" data-settings-action="export-csv">Exportar CSV</button></div>
+                <div class="settings-card settings-danger-card"><div><h3>Restaurar datos iniciales</h3><p>Sustituye tarjetas, plantillas, configuración y analítica de NextCards. No borra otras claves del navegador.</p></div><button class="button button-danger" type="button" data-settings-danger="restore">Restaurar</button></div>
+                <div class="settings-card settings-danger-card"><div><h3>Borrar todos los datos de NextCards</h3><p>Elimina tarjetas y preferencias locales de esta aplicación. La acción requiere confirmación escrita.</p></div><button class="button button-danger" type="button" data-settings-danger="erase">Borrar datos</button></div>
+              </section>
+
+              <section class="settings-panel" id="settings-privacy" role="tabpanel" aria-labelledby="settings-tab-privacy" data-settings-panel="privacy" hidden>
+                <header><span class="settings-section-icon"><span data-icon="lock"></span></span><div><h2>Privacidad</h2><p>Controla la exposición administrativa y la actividad almacenada.</p></div><button class="text-button" type="button" data-settings-reset="privacy">Restablecer bloque</button></header>
+                <div class="settings-card settings-privacy-facts"><h3>Alcance de este prototipo</h3><ul><li>Los datos se almacenan localmente en este navegador y no se sincronizan entre dispositivos.</li><li>Las rutas públicas son locales y pueden no funcionar fuera de este equipo.</li><li>Las fotografías deben permanecer en el proyecto o usar un formato compatible con el navegador.</li><li>No se afirma cumplimiento legal automático; la implantación real requiere revisión organizativa y jurídica.</li></ul></div>
+                <div class="settings-card settings-switch-list">
+                  <label><span><strong>Ocultar emails en el dashboard</strong><small>La tarjeta pública conserva su propia visibilidad.</small></span><input type="checkbox" role="switch" data-setting="privacy.hideEmailsInDashboard"></label>
+                  <label><span><strong>Ocultar teléfonos en el dashboard</strong><small>Evita mostrar el número en el directorio administrativo.</small></span><input type="checkbox" role="switch" data-setting="privacy.hidePhonesInDashboard"></label>
+                  <label><span><strong>Confirmar antes de copiar enlaces</strong><small>Pide confirmación antes de escribir en el portapapeles.</small></span><input type="checkbox" role="switch" data-setting="privacy.confirmBeforeCopy"></label>
+                  <label><span><strong>Aviso de datos personales</strong><small>Muestra una nota informativa en la tarjeta pública.</small></span><input type="checkbox" role="switch" data-setting="privacy.showPersonalDataNotice"></label>
+                  <label><span><strong>Analítica local</strong><small>Registra interacciones anónimas solo en este navegador.</small></span><input type="checkbox" role="switch" data-setting="privacy.analyticsEnabled"></label>
+                </div>
+                <div class="settings-privacy-note"><span data-icon="lock"></span><p>NextCards no envía estos datos a un servidor. Desactivar la analítica detiene los eventos nuevos; no elimina el historial existente.</p></div>
+              </section>
+
+              <section class="settings-panel" id="settings-system" role="tabpanel" aria-labelledby="settings-tab-system" data-settings-panel="system" hidden>
+                <header><span class="settings-section-icon"><span data-icon="check"></span></span><div><h2>Información del sistema</h2><p>Versiones, capacidad local y diagnóstico de los datos.</p></div></header>
+                <div class="settings-card"><dl class="settings-system-list" id="settings-system-list"></dl></div>
+                <div class="settings-card settings-integrity">
+                  <div><span class="settings-data-icon"><span data-icon="check"></span></span><div><h3>Comprobar integridad</h3><p>Busca IDs y slugs repetidos, campos obligatorios, URLs, fotos y referencias de plantillas.</p></div></div>
+                  <button class="button button-secondary" type="button" data-settings-action="check-integrity">Ejecutar comprobación</button>
+                  <div class="settings-integrity-result" id="settings-integrity-result" aria-live="polite" hidden></div>
+                </div>
+                <div class="settings-card settings-data-card"><div><span class="settings-data-icon"><span data-icon="copy"></span></span><div><h3>Resumen técnico</h3><p>Copia versiones, cantidades y claves para soporte, sin incluir datos personales.</p></div></div><button class="button button-secondary" type="button" data-settings-action="copy-technical">Copiar resumen</button></div>
+              </section>
+            </form>
+
+            <aside class="settings-preview" aria-label="Vista previa de configuración">
+              <header><span><i></i>Vista previa</span><small>Sin guardar</small></header>
+              <div class="settings-preview-brand"><img src="assets/img/logos/lognext-symbol-negative.svg" alt="" id="settings-preview-logo"><div><strong id="settings-preview-app">NextCards</strong><small id="settings-preview-subtitle">Digital cards by Lognext</small></div></div>
+              <div class="settings-preview-phone"><div id="settings-live-preview" class="digital-card"></div></div>
+              <div class="settings-preview-actions" id="settings-preview-actions" aria-label="Acciones públicas visibles"></div>
+              <p>Representación en directo. Los cambios globales se aplican al guardar.</p>
+            </aside>
+          </div>
+        </section>
       </main>
     </div>
   </div>
@@ -292,6 +469,9 @@
             </fieldset>
             <fieldset class="visibility-list">
               <legend>Campos visibles</legend>
+              <label><input type="checkbox" name="visible_photo" checked><span>Fotografía</span></label>
+              <label><input type="checkbox" name="visible_jobTitle" checked><span>Cargo</span></label>
+              <label><input type="checkbox" name="visible_department" checked><span>Departamento</span></label>
               <label><input type="checkbox" name="visible_phone" checked><span>Teléfono</span></label>
               <label><input type="checkbox" name="visible_email" checked><span>Email</span></label>
               <label><input type="checkbox" name="visible_city" checked><span>Ciudad</span></label>
@@ -383,6 +563,30 @@
       <header class="analytics-detail-header"><div><span class="eyebrow">Detalle por tarjeta</span><h2 id="analytics-detail-title">Actividad de tarjeta</h2></div><button class="icon-button" type="button" data-stats-action="close-detail" aria-label="Cerrar detalle"><span data-icon="close"></span></button></header>
       <div class="analytics-detail-body" id="analytics-detail-body"></div>
       <footer class="analytics-detail-footer"><button class="button button-secondary" type="button" data-stats-detail-action="view">Ver tarjeta</button><button class="button button-secondary" type="button" data-stats-detail-action="copy">Copiar enlace</button><button class="button button-secondary" type="button" data-stats-detail-action="edit">Abrir editor</button><button class="button button-primary" type="button" data-stats-detail-action="export">Exportar esta tarjeta</button></footer>
+    </section>
+  </div>
+
+  <div class="settings-modal" id="settings-import-modal" hidden>
+    <section class="settings-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-import-title" tabindex="-1">
+      <header><div><span class="eyebrow">Importación validada</span><h2 id="settings-import-title">Revisar copia de seguridad</h2></div><button class="icon-button" type="button" data-settings-modal-close="import" aria-label="Cerrar"><span data-icon="close"></span></button></header>
+      <div class="settings-modal-body"><div id="settings-import-summary"></div><fieldset class="settings-import-mode"><legend>Cómo aplicar la copia</legend><label><input type="radio" name="settingsImportMode" value="replace" checked><span><strong>Reemplazar</strong><small>Sustituye tarjetas, personalizadas y configuración.</small></span></label><label><input type="radio" name="settingsImportMode" value="merge"><span><strong>Fusionar</strong><small>Actualiza por ID y conserva datos locales sin conflicto.</small></span></label></fieldset><div class="settings-import-warning"><span data-icon="lock"></span><p>Se crea una instantánea de recuperación antes de escribir. Un error restaura automáticamente el estado anterior.</p></div></div>
+      <footer><button class="button button-secondary" type="button" data-settings-modal-close="import">Cancelar</button><button class="button button-primary" type="button" data-settings-action="confirm-import">Importar copia</button></footer>
+    </section>
+  </div>
+
+  <div class="settings-modal" id="settings-confirm-modal" hidden>
+    <section class="settings-modal-dialog settings-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-confirm-title" tabindex="-1">
+      <header><div><span class="eyebrow">Acción irreversible</span><h2 id="settings-confirm-title">Confirmar acción</h2></div><button class="icon-button" type="button" data-settings-modal-close="confirm" aria-label="Cerrar"><span data-icon="close"></span></button></header>
+      <div class="settings-modal-body"><p id="settings-confirm-description"></p><label>Escribe <strong id="settings-confirm-word">CONFIRMAR</strong> para continuar<input id="settings-confirm-input" type="text" autocomplete="off"><small class="field-error" id="settings-confirm-error"></small></label></div>
+      <footer><button class="button button-secondary" type="button" data-settings-modal-close="confirm">Cancelar</button><button class="button button-danger" id="settings-confirm-submit" type="button" disabled>Confirmar</button></footer>
+    </section>
+  </div>
+
+  <div class="settings-modal" id="settings-leave-modal" hidden>
+    <section class="settings-modal-dialog settings-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-leave-title" tabindex="-1">
+      <header><div><span class="eyebrow">Cambios pendientes</span><h2 id="settings-leave-title">¿Salir sin guardar?</h2></div><button class="icon-button" type="button" data-settings-leave="cancel" aria-label="Cerrar"><span data-icon="close"></span></button></header>
+      <div class="settings-modal-body"><p>Hay cambios de configuración que todavía no se han guardado. Puedes volver, descartarlos o guardarlos antes de continuar.</p></div>
+      <footer><button class="button button-secondary" type="button" data-settings-leave="cancel">Seguir editando</button><button class="button button-secondary" type="button" data-settings-leave="discard">Descartar y salir</button><button class="button button-primary" type="button" data-settings-leave="save">Guardar y salir</button></footer>
     </section>
   </div>
 

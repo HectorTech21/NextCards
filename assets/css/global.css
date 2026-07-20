@@ -18,8 +18,8 @@ h3{font-size:1.05rem}
 .button{border:0;border-radius:12px;min-height:44px;padding:0 17px;display:inline-flex;align-items:center;justify-content:center;gap:9px;font-weight:600;cursor:pointer;text-decoration:none;transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
 .button:hover{transform:translateY(-1px)}
 .button svg,.icon-button svg,.text-button svg,.nav-item svg{width:19px;height:19px}
-.button-primary{background:var(--orange);color:var(--white);box-shadow:0 8px 18px rgba(250,60,15,.2)}
-.button-primary:hover{background:#e93409}
+.button-primary{background:var(--orange);color:var(--accent-ink);box-shadow:0 8px 18px rgba(250,60,15,.2)}
+.button-primary:hover{background:color-mix(in srgb,var(--orange) 88%,#000)}
 .button-secondary{background:var(--white);border:1px solid var(--border)}
 .button-danger{background:#fff0ed;color:var(--danger);border:1px solid #ffd0c7}
 .button-large{min-height:50px;padding:0 22px}

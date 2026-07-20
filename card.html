@@ -4,6 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Tarjeta de visita digital de Lognext.">
+  <meta property="og:title" content="Tarjeta digital">
+  <meta property="og:description" content="Tarjeta de visita digital.">
+  <meta property="og:type" content="profile">
+  <meta property="og:url" content="">
+  <meta property="og:image" content="">
   <meta name="theme-color" content="#000029">
   <title>Tarjeta digital · NextCards</title>
   <link rel="icon" href="assets/img/logos/lognext-symbol-positive.svg">
@@ -15,17 +20,23 @@
   <a class="skip-link" href="#public-card">Saltar a la tarjeta</a>
   <header class="public-topbar">
     <a class="public-brand" href="index.html" aria-label="Volver a NextCards">
-      <img src="assets/img/logos/lognext-symbol-positive.svg" alt="">
-      <span><strong>NextCards</strong><small>by Lognext</small></span>
+      <img data-app-logo src="assets/img/logos/lognext-symbol-negative.svg" alt="">
+      <span><strong data-app-name>NextCards</strong><small data-app-subtitle>Digital cards by Lognext</small></span>
     </a>
     <button class="icon-button" id="copy-top" type="button" aria-label="Copiar enlace"><span data-icon="copy"></span></button>
   </header>
   <main class="public-main">
     <div id="public-card" class="digital-card public-digital-card" aria-live="polite"></div>
     <section class="public-actions" id="public-actions">
-      <button class="button button-primary button-block" id="save-contact" type="button"><span data-icon="user-plus"></span>Guardar contacto</button>
-      <button class="button button-secondary button-block" id="share-card" type="button"><span data-icon="share"></span>Compartir tarjeta</button>
-      <div class="qr-panel">
+      <div class="public-primary-actions" id="public-primary-actions">
+        <button class="button button-primary button-block" id="save-contact" type="button"><span data-icon="user-plus"></span>Guardar contacto</button>
+        <a class="button button-secondary button-block" id="call-card"><span data-icon="phone"></span>Llamar</a>
+        <a class="button button-secondary button-block" id="email-card"><span data-icon="mail"></span>Email</a>
+        <a class="button button-secondary button-block" id="linkedin-card" target="_blank" rel="noopener noreferrer"><span data-icon="linkedin"></span>LinkedIn</a>
+        <a class="button button-secondary button-block" id="website-card" target="_blank" rel="noopener noreferrer"><span data-icon="web"></span>Web</a>
+        <button class="button button-secondary button-block" id="share-card" type="button"><span data-icon="share"></span>Compartir tarjeta</button>
+      </div>
+      <div class="qr-panel" id="public-qr-panel">
         <div>
           <span class="eyebrow">Acceso rápido</span>
           <h2>Escanea para guardar</h2>
@@ -34,7 +45,11 @@
         <div id="qr-code" class="qr-code" aria-label="Código QR de la tarjeta"></div>
       </div>
       <button class="copy-link" id="copy-link" type="button"><span data-icon="link"></span><span id="public-url"></span><span data-icon="copy"></span></button>
-      <p class="privacy-note"><span data-icon="lock"></span>Los datos de esta tarjeta han sido compartidos por su titular.</p>
+      <p class="privacy-note" id="public-privacy-note"><span data-icon="lock"></span>Los datos de esta tarjeta han sido compartidos por su titular.</p>
+      <footer class="public-footer" id="public-footer">
+        <a id="public-company-link" target="_blank" rel="noopener noreferrer"><img id="public-company-logo" src="assets/img/logos/lognext-positive.svg" alt="Lognext"><span id="public-company-name">Lognext</span></a>
+        <small id="public-powered">Powered by <span data-app-name>NextCards</span></small>
+      </footer>
     </section>
     <section class="not-found" id="not-found" hidden>
       <img src="assets/img/logos/lognext-symbol-positive.svg" alt="">

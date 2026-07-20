@@ -1,4 +1,5 @@
 import {storage} from "./storage.js";
+import {settingsService} from "./settings-store.js";
 
 export const TEMPLATES_STORAGE_KEY = "nextcards.templates.v1";
 export const TEMPLATES_VERSION_KEY = "nextcards.templates.seed.version";
@@ -467,6 +468,8 @@ export const templateService = {
     if (!target) throw error("No se ha encontrado la plantilla.", "NOT_FOUND");
     if (target.status !== "active") throw error("Una plantilla archivada no puede ser predeterminada.", "ARCHIVED_TEMPLATE");
     saveCollection(templates.map(item => ({...item, isDefault: item.id === id, updatedAt: item.id === id ? stamp() : item.updatedAt})));
+    try { settingsService.syncDefaultTemplate(id); }
+    catch (cause) { console.warn("La plantilla se actualizó, pero no se pudo sincronizar la preferencia general.", cause); }
     return this.getTemplateById(id);
   },
   getCardsUsingTemplate(id) {
@@ -495,6 +498,25 @@ export const templateService = {
     });
     storage.saveCards(nextCards);
     return {updated, skipped: Math.max(0, selected.size - updated), errors: []};
+  },
+  importCustomTemplates(input, {mode = "replace"} = {}) {
+    if (!Array.isArray(input)) throw error("La copia no contiene una lista válida de plantillas personalizadas.", "INVALID_IMPORT");
+    if (!["replace", "merge"].includes(mode)) throw error("Modo de importación no válido.", "INVALID_IMPORT_MODE");
+    const current = this.getTemplates();
+    const systems = current.filter(item => item.type === "system");
+    const customs = mode === "merge" ? current.filter(item => item.type === "custom") : [];
+    const byId = new Map(customs.map(item => [item.id, item]));
+    for (const raw of input) {
+      if (!raw || raw.type !== "custom" || !raw.id || !raw.name) throw error("Hay una plantilla personalizada incompleta.", "INVALID_IMPORT");
+      if (systems.some(item => item.id === raw.id)) throw error(`El ID ${raw.id} está reservado por una plantilla del sistema.`, "INVALID_IMPORT");
+      const normalized = completeCustomTemplate(raw);
+      byId.set(normalized.id, normalized);
+    }
+    const imported = [...byId.values()];
+    const duplicateName = imported.find((item, index) => imported.some((candidate, candidateIndex) => candidateIndex !== index && candidate.name.localeCompare(item.name, "es", {sensitivity: "accent"}) === 0));
+    if (duplicateName) throw error(`El nombre de plantilla "${duplicateName.name}" está duplicado.`, "INVALID_IMPORT");
+    saveCollection([...systems, ...imported]);
+    return {imported: input.length, totalCustom: imported.length};
   },
   resetForTests() {
     localStorage.removeItem(TEMPLATES_STORAGE_KEY);

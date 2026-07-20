@@ -1,6 +1,6 @@
 {
   "name": "nextcards",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,8 @@
     "test:seed": "node scripts/test-seed-persistence.mjs",
     "test:templates": "node scripts/test-templates.mjs",
     "test:analytics": "node scripts/test-analytics.mjs",
-    "test": "pnpm test:seed && pnpm test:templates && pnpm test:analytics"
+    "test:settings": "node scripts/test-settings.mjs",
+    "test": "pnpm test:seed && pnpm test:templates && pnpm test:analytics && pnpm test:settings"
   },
   "devDependencies": {
     "qrcode-generator": "1.4.4",

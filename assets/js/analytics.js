@@ -4,6 +4,7 @@ import {
   ANALYTICS_SOURCES,
   analyticsRepository,
 } from "./analytics-store.js";
+import {settingsService} from "./settings-store.js";
 
 export const ANALYTICS_SESSION_KEY = "nextcards_analytics_session_id";
 const pageViews = new Set();
@@ -76,6 +77,7 @@ export function createAnalyticsEvent(eventType, context = {}) {
 }
 
 export function trackEvent(eventType, context = {}, repository = analyticsRepository) {
+  if (!settingsService.getSettings().privacy.analyticsEnabled) return {saved: false, disabled: true};
   const event = createAnalyticsEvent(eventType, context);
   return {...repository.saveEvent(event), event};
 }

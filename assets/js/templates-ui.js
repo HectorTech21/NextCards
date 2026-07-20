@@ -1,6 +1,7 @@
 import {cardService} from "./cards.js";
 import {renderCardPreview} from "./preview.js";
 import {CORPORATE_PRESETS,templateService,validateTemplateDraft} from "./templates-store.js";
+import {formatPersonName,formatSettingsDate} from "./settings-store.js";
 
 export const TEMPLATE_SAMPLE_CARD = Object.freeze({
   id: "template-preview-sample",
@@ -28,7 +29,7 @@ export const TEMPLATE_SAMPLE_CARD = Object.freeze({
 const node=(tag,className,text)=>{const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=text;return element};
 const option=(value,text)=>{const element=node("option","",text);element.value=value;return element};
 const initials=card=>`${card.firstName?.[0]||""}${card.lastName?.[0]||""}`.toUpperCase();
-const formatDate=value=>value?new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"short",year:"numeric"}).format(new Date(value)):"—";
+const formatDate=value=>formatSettingsDate(value).replace(/,? \d{1,2}:\d{2}$/,"");
 
 let initialized=false;
 let toast=()=>{};
@@ -121,7 +122,7 @@ function closeModal(modal,restoreFocus=true){
 
 function populatePreviewCards(){
   const select=document.querySelector("#template-preview-card"),selected=select.value;select.replaceChildren(option("","Alex Martínez · Ejemplo"));
-  cardService.all().forEach(card=>select.append(option(card.id,`${card.firstName} ${card.lastName} · ${card.jobTitle}`)));select.value=cardService.get(selected)?selected:"";
+  cardService.all().forEach(card=>select.append(option(card.id,`${formatPersonName(card)} · ${card.jobTitle}`)));select.value=cardService.get(selected)?selected:"";
 }
 
 function refreshFullPreview(){
@@ -254,7 +255,7 @@ function renderApplyCards(){
   cards.forEach(card=>{
     const row=node("label","apply-card-row"),checkbox=node("input");checkbox.type="checkbox";checkbox.dataset.cardId=card.id;checkbox.checked=selectedCardIds.has(card.id);
     let avatar;if(card.photo){avatar=node("img");avatar.src=card.photo;avatar.alt=""}else avatar=node("span","apply-card-avatar",initials(card));
-    const identity=node("span");identity.append(node("strong","",`${card.firstName} ${card.lastName}`),node("small","",`${card.jobTitle} · ${card.department}`));
+    const identity=node("span");identity.append(node("strong","",formatPersonName(card)),node("small","",`${card.jobTitle} · ${card.department}`));
     row.append(checkbox,avatar,identity,node("span","apply-card-current",templates.get(card.template)||"Plantilla no disponible"));list.append(row);
   });
   const empty=document.querySelector("#apply-empty");empty.hidden=Boolean(cards.length);list.hidden=!cards.length;

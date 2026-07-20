@@ -1,11 +1,16 @@
 import {storage} from "./storage.js";
 import {templateService} from "./templates-store.js";
+import {settingsService} from "./settings-store.js";
 
 const uid=()=>globalThis.crypto?.randomUUID?.()||`card-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const stamp=()=>new Date().toISOString();
 
-export function normalizeSlug(value=""){
-  return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,70);
+export function normalizeSlug(value="",options={}){
+  const lowercase=options.lowercase!==false,spacesToHyphens=options.spacesToHyphens!==false;
+  let normalized=String(value).normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  if(lowercase)normalized=normalized.toLowerCase();
+  normalized=normalized.replace(/\s+/g,spacesToHyphens?"-":"");
+  return normalized.replace(lowercase?/[^a-z0-9-]+/g:/[^A-Za-z0-9-]+/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"").slice(0,70);
 }
 
 export function sanitizePhone(value=""){ return value.replace(/[^\d+()\s-]/g,"").trim(); }
@@ -39,7 +44,7 @@ export const cardService = {
     const card=this.get(id); if(!card) return;
     return this.update(id,{status:card.status==="disabled"?"draft":"disabled"});
   },
-  slugExists(slug,exceptId=""){ return this.all().some(card=>card.slug===slug&&card.id!==exceptId); },
+  slugExists(slug,exceptId=""){ const normalized=String(slug).toLowerCase();return this.all().some(card=>String(card.slug).toLowerCase()===normalized&&card.id!==exceptId); },
   query({search="",department="",status=""}={}){
     const needle=search.trim().toLowerCase();
     return this.all().filter(card=>{
@@ -50,11 +55,12 @@ export const cardService = {
 };
 
 export function emptyCard(){
+  const settings=settingsService.getSettings();
   const defaultTemplate=templateService.getDefaultTemplate();
   return {
     id:"",slug:"",cardName:"",firstName:"",lastName:"",jobTitle:"",department:"",city:"Madrid",pronouns:"",
-    email:"",phone:"",mobile:"",website:"https://lognext.com",linkedin:"",location:"Madrid",customLink:"",bio:"",
-    photo:"",template:defaultTemplate.id,accentColor:defaultTemplate.theme.accentColor,status:"active",language:"es",
-    visibleFields:{phone:true,email:true,city:true,bio:true,linkedin:true,website:true}
+    email:"",phone:"",mobile:"",website:settings.publicCard.companyUrl,linkedin:"",location:"Madrid",customLink:"",bio:"",
+    photo:"",template:defaultTemplate.id,accentColor:defaultTemplate.theme.accentColor,status:settings.cards.defaultStatus,language:"es",
+    visibleFields:{...settings.cards.defaultVisibleFields}
   };
 }

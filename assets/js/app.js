@@ -5,6 +5,8 @@ import {getSourcedPublicCardUrl} from "./card-export.js";
 import {setupTemplatesUI,renderTemplatesSection} from "./templates-ui.js";
 import {templateService} from "./templates-store.js";
 import {setupAnalyticsUI,renderAnalyticsSection} from "./analytics-ui.js";
+import {applySettingsToDocument,formatPersonName,getDefaultSettings,settingsService} from "./settings-store.js";
+import {isSettingsDirty,renderSettingsSection,requestSettingsLeave,setupSettingsUI} from "./settings-ui.js";
 
 const iconPaths={
   cards:"M4 4h16v16H4z M8 8h8 M8 12h6",people:"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75",
@@ -29,6 +31,13 @@ const department=document.querySelector("#department-filter"),statusFilter=docum
 const statusLabels={active:"Activa",draft:"Borrador",disabled:"Desactivada"};
 const initials=card=>`${card.firstName?.[0]||""}${card.lastName?.[0]||""}`.toUpperCase();
 const node=(tag,className,text)=>{const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el};
+const readSettings=()=>{try{return settingsService.getSettings()}catch(error){console.warn("Se aplicará una configuración segura.",error);return getDefaultSettings()}};
+let currentSection="cards";
+
+function applyAppSettings(settings=readSettings()){
+  applySettingsToDocument(settings);
+  document.title=`${settings.general.appName} · ${settings.general.appSubtitle}`;
+}
 
 export function showToast(message,type="success"){
   const toast=node("div",`toast ${type}`);toast.append(makeIcon(type==="error"?"bell":"check"),document.createTextNode(message));document.querySelector("#toast-region").append(toast);
@@ -40,21 +49,27 @@ function createButton(label,className,action,id,icon){
 }
 
 function createCard(card){
+  const settings=readSettings();
+  const displayName=formatPersonName(card,settings);
   const article=node("article","employee-card"),cover=node("div","employee-cover");
   const logo=node("img","employee-logo");logo.src="assets/img/logos/lognext-negative.svg";logo.alt="";
-  const menuButton=createButton("","card-menu-button","toggle-menu",card.id,"more");menuButton.setAttribute("aria-label",`Más acciones para ${card.firstName}`);menuButton.setAttribute("aria-expanded","false");
+  const menuButton=createButton("","card-menu-button","toggle-menu",card.id,"more");menuButton.setAttribute("aria-label",`Más acciones para ${displayName}`);menuButton.setAttribute("aria-expanded","false");
   const menu=node("div","card-menu");menu.hidden=true;
   [["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]].forEach(([label,action])=>{const b=createButton(label,action==="delete"?"danger":"",action,card.id);menu.append(b)});
   cover.append(logo,menuButton,menu);
-  if(card.photo){const img=node("img","employee-photo");img.src=card.photo;img.alt=`Foto de ${card.firstName} ${card.lastName}`;cover.append(img)}else cover.append(node("div","employee-initials",initials(card)));
+  if(card.photo&&card.visibleFields?.photo!==false){const img=node("img","employee-photo");img.src=card.photo;img.alt=`Foto de ${displayName}`;cover.append(img)}else cover.append(node("div","employee-initials",initials(card)));
   const info=node("div","employee-info"),top=node("div","employee-info-top");
   top.append(node("span",`status status-${card.status}`,statusLabels[card.status]||card.status));
   const template=templateService.resolveTemplate(card.template,{warn:false});
-  info.append(top,node("h3","",`${card.firstName} ${card.lastName}`),node("p","role",card.jobTitle),node("p","department",card.department),node("p","card-template-name",`Plantilla · ${template.name}`));
-  const email=node("a","email",card.email);email.href=`mailto:${card.email}`;info.append(email);
+  info.append(top,node("h3","",displayName),node("p","role",card.jobTitle),node("p","department",card.department),node("p","card-template-name",`Plantilla · ${template.name}`));
+  const contacts=node("div","card-contact-preview");
+  if(!settings.privacy.hideEmailsInDashboard&&card.email){const email=node("a","email",card.email);email.href=`mailto:${card.email}`;contacts.append(email)}
+  if(!settings.privacy.hidePhonesInDashboard&&card.phone){const phone=node("a","phone",card.phone);phone.href=`tel:${card.phone.replace(/[^\d+]/g,"")}`;contacts.append(phone)}
+  if(!contacts.children.length)contacts.append(node("span","contact-hidden","Datos de contacto ocultos"));
+  info.append(contacts);
   const actions=node("div","card-actions");
   actions.append(createButton("Editar","button button-primary","edit",card.id),createButton("Ver tarjeta","button button-secondary","view",card.id),createButton("","icon-button","copy",card.id,"copy"));
-  actions.lastChild.setAttribute("aria-label",`Copiar enlace de ${card.firstName}`);
+  actions.lastChild.setAttribute("aria-label",`Copiar enlace de ${displayName}`);
   info.append(actions);article.append(cover,info);return article;
 }
 
@@ -82,6 +97,7 @@ function download(content,filename,type){
 }
 async function copyCardLink(id){
   const card=cardService.get(id);const url=getSourcedPublicCardUrl(card,"copied_link");
+  if(readSettings().privacy.confirmBeforeCopy&&!window.confirm(`¿Copiar el enlace de ${formatPersonName(card,readSettings())}?`))return;
   await navigator.clipboard.writeText(url);showToast("Enlace copiado.");
 }
 
@@ -107,27 +123,36 @@ function handleAction(action,id,target){
 setupEditor({onChange:()=>{refreshDepartments();renderDashboard()},showToast});
 setupTemplatesUI({showToast,onCardsUpdate:()=>{refreshDepartments();renderDashboard()},renderIconElements:renderIcons});
 setupAnalyticsUI({showToast,renderIconElements:renderIcons,openCardEditor:openEditor});
-renderIcons();refreshDepartments();renderDashboard();
+setupSettingsUI({showToast,renderIconElements:renderIcons,onSettingsApplied:()=>{applyAppSettings();refreshDepartments();renderDashboard();renderTemplatesSection();renderAnalyticsSection()},onDataChanged:()=>{refreshDepartments();renderDashboard();renderTemplatesSection();renderAnalyticsSection()}});
+applyAppSettings();renderIcons();refreshDepartments();renderDashboard();
 document.addEventListener("click",event=>{
   const trigger=event.target.closest("[data-action]");if(trigger)handleAction(trigger.dataset.action,trigger.dataset.id,trigger);
   if(!event.target.closest(".card-menu-button")&&!event.target.closest(".card-menu"))document.querySelectorAll(".card-menu").forEach(menu=>menu.hidden=true);
 });
 [search,department,statusFilter].forEach(control=>control.addEventListener(control===search?"input":"change",renderDashboard));
 document.querySelector("#menu-toggle").addEventListener("click",event=>{const open=sidebar.classList.toggle("open");event.currentTarget.setAttribute("aria-expanded",open)});
-document.querySelectorAll(".nav-item").forEach(item=>item.addEventListener("click",()=>{
-  const section=item.dataset.section;
-  if(!["cards","templates","stats"].includes(section)){showToast("Esta sección estará disponible en una siguiente fase.","error");sidebar.classList.remove("open");return}
+function activateSection(section,item=document.querySelector(`.nav-item[data-section="${section}"]`)){
   document.querySelector("#cards-view").hidden=section!=="cards";
   document.querySelector("#templates-view").hidden=section!=="templates";
   document.querySelector("#stats-view").hidden=section!=="stats";
+  document.querySelector("#settings-view").hidden=section!=="settings";
   document.querySelectorAll(".nav-item").forEach(nav=>nav.classList.toggle("active",nav===item));
+  document.body.dataset.section=section;
+  currentSection=section;
   if(section==="templates")renderTemplatesSection();
   if(section==="stats")renderAnalyticsSection();
+  if(section==="settings")renderSettingsSection();
   sidebar.classList.remove("open");
+}
+document.querySelectorAll(".nav-item").forEach(item=>item.addEventListener("click",()=>{
+  const section=item.dataset.section;
+  if(!["cards","templates","stats","settings"].includes(section)){showToast("Esta sección estará disponible en una siguiente fase.","error");sidebar.classList.remove("open");return}
+  const navigate=()=>activateSection(section,item);
+  if(currentSection==="settings"&&section!=="settings"&&isSettingsDirty())requestSettingsLeave(navigate);else navigate();
 }));
 document.querySelector("#data-menu-button").addEventListener("click",event=>{const menu=document.querySelector("#data-menu");menu.hidden=!menu.hidden;event.currentTarget.setAttribute("aria-expanded",!menu.hidden)});
 document.querySelector("#import-file").addEventListener("change",async event=>{
   const file=event.target.files[0];if(!file)return;
   try{storage.importCards(await file.text());refreshDepartments();renderDashboard();showToast("Datos importados correctamente.")}catch(error){showToast(error.message,"error")}event.target.value="";
 });
-document.addEventListener("keydown",event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==="k"){event.preventDefault();search.focus()}});
+document.addEventListener("keydown",event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==="k"){event.preventDefault();const focusSearch=()=>{if(currentSection!=="cards")activateSection("cards");search.focus()};if(currentSection==="settings"&&isSettingsDirty())requestSettingsLeave(focusSearch);else focusSearch()}});

@@ -2,6 +2,7 @@ import {cardService,emptyCard,normalizeSlug,sanitizePhone,isValidHttpUrl} from "
 import {renderCardPreview} from "./preview.js";
 import {templateService} from "./templates-store.js";
 import {getSourcedPublicCardUrl} from "./card-export.js";
+import {formatPersonName,settingsService} from "./settings-store.js";
 
 const overlay=document.querySelector("#editor-overlay");
 const dialog=document.querySelector(".editor-dialog");
@@ -13,6 +14,7 @@ const dangerZone=document.querySelector("#danger-zone");
 const photoPreview=document.querySelector("#photo-preview");
 let currentPhoto="";
 let autoSlug=true;
+let editorSettings=settingsService.getSettings();
 let onSaved=()=>{};
 let toast=()=>{};
 
@@ -75,6 +77,8 @@ function formData(){
   data.photo=currentPhoto;
   data.phone=sanitizePhone(data.phone);data.mobile=sanitizePhone(data.mobile);
   data.visibleFields={
+    photo:form.elements.visible_photo.checked,jobTitle:form.elements.visible_jobTitle.checked,
+    department:form.elements.visible_department.checked,
     phone:form.elements.visible_phone.checked,email:form.elements.visible_email.checked,
     city:form.elements.visible_city.checked,bio:form.elements.visible_bio.checked,
     linkedin:form.elements.visible_linkedin.checked,website:form.elements.visible_website.checked
@@ -108,22 +112,25 @@ function validate(data){
   [["firstName","Indica el nombre."],["lastName","Indica los apellidos."],["jobTitle","Indica el puesto."],["department","Indica el departamento."],["cardName","Indica un nombre interno."],["slug","Indica una URL pública."],["email","Indica un email válido."]].forEach(([name,message])=>{
     const field=form.elements.namedItem(name);if(!field.value.trim()||!field.checkValidity()){fieldError(name,message);valid=false}
   });
-  if(data.slug!==normalizeSlug(data.slug)){fieldError("slug","Usa sólo minúsculas, números y guiones.");valid=false}
+  if(data.slug!==normalizeSlug(data.slug,editorSettings.cards.slug)){fieldError("slug",editorSettings.cards.slug.lowercase?"Usa sólo minúsculas, números y guiones.":"Usa sólo letras, números y guiones.");valid=false}
   if(cardService.slugExists(data.slug,data.id)){fieldError("slug","Esta URL ya está en uso.");valid=false}
   ["website","linkedin","customLink"].forEach(name=>{if(!isValidHttpUrl(data[name])){fieldError(name,"Introduce una URL que empiece por https://");valid=false}});
   return valid;
 }
 
 function populate(card){
-  form.reset();clearErrors();const merged={...emptyCard(),...card};
+  editorSettings=settingsService.getSettings();form.reset();clearErrors();const merged={...emptyCard(),...card};
   const selectedTemplate=renderTemplatePicker(merged.template);
   merged.template=selectedTemplate.id;
   merged.accentColor=merged.accentColor||selectedTemplate.theme.accentColor;
   ensureAccentOption(merged.accentColor);
   Object.entries(merged).forEach(([key,value])=>{if(key!=="visibleFields"&&key!=="photo")assign(key,value)});
   Object.entries(merged.visibleFields||{}).forEach(([key,value])=>assign(`visible_${key}`,value));
-  currentPhoto=merged.photo||"";autoSlug=!merged.slug;updatePhoto();refreshPreview();
-  title.textContent=merged.id?`Editar · ${merged.firstName} ${merged.lastName}`:"Nueva tarjeta";
+  currentPhoto=merged.photo||"";autoSlug=!merged.id&&editorSettings.cards.slug.autoGenerate;
+  form.elements.slug.readOnly=!editorSettings.cards.slug.allowManualEdit;form.elements.slug.setAttribute("aria-readonly",String(form.elements.slug.readOnly));
+  form.elements.slug.pattern=editorSettings.cards.slug.lowercase?"[a-z0-9]+(?:-[a-z0-9]+)*":"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*";
+  updatePhoto();refreshPreview();
+  title.textContent=merged.id?`Editar · ${formatPersonName(merged,editorSettings)}`:"Nueva tarjeta";
   dangerZone.hidden=!merged.id;indicator.textContent=merged.id?"Todos los cambios guardados":"Nueva tarjeta";
 }
 
@@ -132,8 +139,9 @@ export function setupEditor({onChange,showToast}={}){
   form.addEventListener("input",event=>{
     if(event.target.name==="firstName"||event.target.name==="lastName"){
       const full=`${form.elements.firstName.value} ${form.elements.lastName.value}`.trim();
-      if(!form.elements.cardName.value||autoSlug)form.elements.cardName.value=full;
-      if(autoSlug)form.elements.slug.value=normalizeSlug(full);
+      const displayName=formatPersonName({firstName:form.elements.firstName.value,lastName:form.elements.lastName.value},editorSettings);
+      if(!form.elements.cardName.value||autoSlug)form.elements.cardName.value=displayName;
+      if(autoSlug)form.elements.slug.value=normalizeSlug(full,editorSettings.cards.slug);
     }
     if(event.target.name==="slug")autoSlug=false;
     refreshPreview();
@@ -173,7 +181,7 @@ function save(forcedStatus){
   try{
     const saved=data.id?cardService.update(data.id,data):cardService.create(data);
     assign("id",saved.id);dangerZone.hidden=false;indicator.textContent="Guardado ahora";
-    title.textContent=`Editar · ${saved.firstName} ${saved.lastName}`;
+    title.textContent=`Editar · ${formatPersonName(saved,editorSettings)}`;
     toast(forcedStatus==="draft"?"Borrador guardado.":"Tarjeta guardada.","success");onSaved(saved);
   }catch(error){toast(error.message,"error")}
 }

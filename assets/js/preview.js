@@ -1,4 +1,5 @@
 import {templateService,readableTextColor} from "./templates-store.js";
+import {formatPersonName,settingsService} from "./settings-store.js";
 
 const NS="http://www.w3.org/2000/svg";
 const icons={
@@ -24,11 +25,8 @@ function logoSource(theme){
   return "assets/img/logos/lognext-negative.svg";
 }
 
-function taglineFor(template){
-  const baseId=template.type==="system"?template.id:template.baseTemplateId;
-  return ["meaningful-tech","executive-lines","orange-pulse","blue-grid","talent-focus","premium-dark"].includes(baseId)
-    ? "Your Meaningful Tech Partner."
-    : "Digital card by Lognext";
+function taglineFor(settings){
+  return settings.publicCard.tagline;
 }
 
 function applyTheme(container,card,template){
@@ -49,8 +47,9 @@ function applyTheme(container,card,template){
   container.style.setProperty("--accent",accent);
 }
 
-export function renderCardPreview(container,card,templateOverride=null){
+export function renderCardPreview(container,card,templateOverride=null,settingsOverride=null){
   container.replaceChildren();
+  const settings=settingsOverride||settingsService.getSettings();
   const template=templateOverride||templateService.resolveTemplate(card.template);
   applyTheme(container,card,template);
   const theme=template.theme;
@@ -59,11 +58,13 @@ export function renderCardPreview(container,card,templateOverride=null){
   const logo=el("img","dc-logo");logo.src=logoSource(theme);logo.alt="Lognext";
   inner.append(header,logo);
   const identity=el("div","dc-identity");
-  if(card.photo){const photo=el("img","dc-photo");photo.src=card.photo;photo.alt=`Foto de ${card.firstName||"empleado"}`;identity.append(photo)}
-  else identity.append(el("div","dc-initials",initials(card)||"LN"));
-  identity.append(el("h1","",`${card.firstName||"Nombre"} ${card.lastName||"Apellidos"}`.trim()));
-  identity.append(el("p","dc-role",card.jobTitle||"Puesto"));
-  const metadata=[theme.showDepartment!==false&&card.department,theme.showCity!==false&&card.visibleFields?.city!==false&&card.city].filter(Boolean);
+  if(card.visibleFields?.photo!==false){
+    if(card.photo){const photo=el("img","dc-photo");photo.src=card.photo;photo.alt=`Foto de ${card.firstName||"empleado"}`;identity.append(photo)}
+    else identity.append(el("div","dc-initials",initials(card)||"LN"));
+  }
+  identity.append(el("h1","",formatPersonName({firstName:card.firstName||"Nombre",lastName:card.lastName||"Apellidos"},settings)));
+  if(card.visibleFields?.jobTitle!==false)identity.append(el("p","dc-role",card.jobTitle||"Puesto"));
+  const metadata=[theme.showDepartment!==false&&card.visibleFields?.department!==false&&card.department,theme.showCity!==false&&card.visibleFields?.city!==false&&card.city].filter(Boolean);
   if(metadata.length)identity.append(el("p","dc-meta",metadata.join(" · ")));
   if(card.bio&&card.visibleFields?.bio!==false) identity.append(el("p","dc-bio",card.bio));
   const contact=el("div","dc-contact");
@@ -79,7 +80,7 @@ export function renderCardPreview(container,card,templateOverride=null){
     "contact-identity-social":["contact","identity","social"],
   }[theme.contentOrder]||["identity","contact","social"];
   order.forEach(key=>{if(key==="identity"||blocks[key].children.length)inner.append(blocks[key])});
-  if(theme.showTagline)inner.append(el("p","dc-tagline",taglineFor(template)));
+  if(theme.showTagline&&settings.publicCard.tagline)inner.append(el("p","dc-tagline",taglineFor(settings)));
   container.append(pattern,inner);
   return template;
 }

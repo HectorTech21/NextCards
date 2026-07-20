@@ -21,6 +21,7 @@ import {
 import {generateAnalyticsDemoData} from "./analytics-demo.js";
 import {getSourcedPublicCardUrl} from "./card-export.js";
 import {templateService} from "./templates-store.js";
+import {formatPersonName,settingsService} from "./settings-store.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SERIES = Object.freeze({
@@ -60,13 +61,14 @@ const svgElement = (tag, attributes = {}) => {
   Object.entries(attributes).forEach(([name, value]) => element.setAttribute(name, String(value)));
   return element;
 };
-const fullName = card => `${card?.firstName || ""} ${card?.lastName || ""}`.trim() || "Tarjeta eliminada";
+const fullName = card => formatPersonName(card, settingsService.getSettings()) || "Tarjeta eliminada";
 const initials = card => `${card?.firstName?.[0] || ""}${card?.lastName?.[0] || ""}`.toUpperCase() || "?";
 const number = value => new Intl.NumberFormat("es-ES").format(value || 0);
-const dateTime = value => value ? new Intl.DateTimeFormat("es-ES", {dateStyle: "medium", timeStyle: "short"}).format(new Date(value)) : "Sin interacciones";
+const dateTime = value => value ? new Intl.DateTimeFormat("es-ES", {dateStyle: "medium", timeStyle: "short", timeZone: settingsService.getSettings().general.timezone}).format(new Date(value)) : "Sin interacciones";
 const todayKey = () => {
-  const date = new Date();
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const parts = new Intl.DateTimeFormat("en-CA", {timeZone: settingsService.getSettings().general.timezone, year: "numeric", month: "2-digit", day: "2-digit"}).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
 };
 
 function downloadFile(content, filename, type) {
