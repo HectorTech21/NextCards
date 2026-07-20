@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Tarjeta de visita digital de Lognext.">
+  <meta name="theme-color" content="#000029">
+  <title>Tarjeta digital · NextCards</title>
+  <link rel="icon" href="assets/img/logos/lognext-symbol-positive.svg">
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <link rel="stylesheet" href="assets/css/public-card.css">
+</head>
+<body class="public-page">
+  <a class="skip-link" href="#public-card">Saltar a la tarjeta</a>
+  <header class="public-topbar">
+    <a class="public-brand" href="index.html" aria-label="Volver a NextCards">
+      <img src="assets/img/logos/lognext-symbol-positive.svg" alt="">
+      <span><strong>NextCards</strong><small>by Lognext</small></span>
+    </a>
+    <button class="icon-button" id="copy-top" type="button" aria-label="Copiar enlace"><span data-icon="copy"></span></button>
+  </header>
+  <main class="public-main">
+    <div id="public-card" class="digital-card public-digital-card" aria-live="polite"></div>
+    <section class="public-actions" id="public-actions">
+      <button class="button button-primary button-block" id="save-contact" type="button"><span data-icon="user-plus"></span>Guardar contacto</button>
+      <button class="button button-secondary button-block" id="share-card" type="button"><span data-icon="share"></span>Compartir tarjeta</button>
+      <div class="qr-panel">
+        <div>
+          <span class="eyebrow">Acceso rápido</span>
+          <h2>Escanea para guardar</h2>
+          <p>Abre esta tarjeta desde la cámara de tu móvil.</p>
+        </div>
+        <div id="qr-code" class="qr-code" aria-label="Código QR de la tarjeta"></div>
+      </div>
+      <button class="copy-link" id="copy-link" type="button"><span data-icon="link"></span><span id="public-url"></span><span data-icon="copy"></span></button>
+      <p class="privacy-note"><span data-icon="lock"></span>Los datos de esta tarjeta han sido compartidos por su titular.</p>
+    </section>
+    <section class="not-found" id="not-found" hidden>
+      <img src="assets/img/logos/lognext-symbol-positive.svg" alt="">
+      <h1>Tarjeta no encontrada</h1>
+      <p>El enlace no existe o la tarjeta ya no está disponible.</p>
+      <a class="button button-primary" href="index.html">Ir a NextCards</a>
+    </section>
+  </main>
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <script src="assets/js/vendor/qrcode-generator.js"></script>
+  <script type="module" src="assets/js/public-card.js"></script>
+</body>
+</html>

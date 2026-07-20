@@ -1,11 +1,392 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="NextCards, gestión de tarjetas digitales de Lognext.">
+  <meta name="theme-color" content="#000029">
+  <title>NextCards · Digital cards by Lognext</title>
+  <link rel="icon" href="assets/img/logos/lognext-symbol-positive.svg">
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/global.css">
+  <link rel="stylesheet" href="assets/css/dashboard.css">
+  <link rel="stylesheet" href="assets/css/editor.css">
+  <link rel="stylesheet" href="assets/css/templates.css">
+  <link rel="stylesheet" href="assets/css/analytics.css">
 </head>
 <body>
-  
+  <a class="skip-link" href="#main-content">Saltar al contenido</a>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Navegación principal">
+      <div class="brand">
+        <span class="brand-mark"><img src="assets/img/logos/lognext-symbol-negative.svg" alt=""></span>
+        <span><strong>NextCards</strong><small>Digital cards by Lognext</small></span>
+      </div>
+      <nav class="main-nav">
+        <button class="nav-item active" type="button" data-section="cards"><span data-icon="cards"></span>Tarjetas</button>
+        <button class="nav-item" type="button" data-section="employees"><span data-icon="people"></span>Empleados</button>
+        <button class="nav-item" type="button" data-section="templates"><span data-icon="layout"></span>Plantillas</button>
+        <button class="nav-item" type="button" data-section="stats"><span data-icon="chart"></span>Estadísticas</button>
+        <button class="nav-item" type="button" data-section="settings"><span data-icon="settings"></span>Configuración</button>
+      </nav>
+      <div class="sidebar-note">
+        <span class="eyebrow">Prototipo local</span>
+        <strong>Datos bajo tu control</strong>
+        <p>La información se guarda únicamente en este navegador.</p>
+      </div>
+      <div class="admin-mini">
+        <span class="avatar avatar-sm">HP</span>
+        <span><strong>Héctor Plaza</strong><small>Administrador</small></span>
+      </div>
+    </aside>
+
+    <div class="app-content">
+      <header class="topbar">
+        <button class="icon-button menu-toggle" id="menu-toggle" type="button" aria-label="Abrir menú" aria-expanded="false">
+          <span data-icon="menu"></span>
+        </button>
+        <div class="search-wrap">
+          <span data-icon="search"></span>
+          <label class="sr-only" for="global-search">Buscar empleados</label>
+          <input id="global-search" type="search" placeholder="Buscar por nombre, puesto o email">
+          <kbd>⌘ K</kbd>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-button" type="button" data-action="notifications" aria-label="Notificaciones"><span data-icon="bell"></span><i></i></button>
+          <button class="button button-primary" type="button" data-action="new-card"><span data-icon="plus"></span>Nueva tarjeta</button>
+          <button class="avatar-button" type="button" aria-label="Menú de administrador"><span class="avatar avatar-sm">HP</span></button>
+        </div>
+      </header>
+
+      <main id="main-content">
+        <div id="cards-view">
+        <section class="hero">
+          <div>
+            <span class="eyebrow">Gestión de identidad digital</span>
+            <h1>Tarjetas digitales</h1>
+            <p>Crea, personaliza y comparte la identidad profesional de tu equipo desde un único lugar.</p>
+          </div>
+          <button class="button button-primary button-large" type="button" data-action="new-card"><span data-icon="plus"></span>Crear nueva tarjeta</button>
+        </section>
+
+        <section class="metrics" aria-label="Resumen">
+          <article><span class="metric-icon green"><span data-icon="check"></span></span><div><strong id="active-count">0</strong><span>Tarjetas activas</span></div></article>
+          <article><span class="metric-icon violet"><span data-icon="edit"></span></span><div><strong id="draft-count">0</strong><span>Borradores</span></div></article>
+          <article><span class="metric-icon blue"><span data-icon="users"></span></span><div><strong id="total-count">0</strong><span>Empleados</span></div></article>
+          <article class="metric-highlight"><span>Your Meaningful<br>Tech Partner.</span><img src="assets/img/logos/lognext-symbol-negative.svg" alt=""></article>
+        </section>
+
+        <section class="cards-panel">
+          <div class="panel-toolbar">
+            <div>
+              <h2>Directorio de tarjetas</h2>
+              <p id="results-label">Gestiona las tarjetas de tu equipo.</p>
+            </div>
+            <div class="filters">
+              <label>
+                <span class="sr-only">Filtrar por departamento</span>
+                <select id="department-filter"><option value="">Todos los departamentos</option></select>
+              </label>
+              <label>
+                <span class="sr-only">Filtrar por estado</span>
+                <select id="status-filter">
+                  <option value="">Todos los estados</option>
+                  <option value="active">Activa</option>
+                  <option value="draft">Borrador</option>
+                  <option value="disabled">Desactivada</option>
+                </select>
+              </label>
+              <button class="button button-secondary" id="data-menu-button" type="button" aria-expanded="false"><span data-icon="database"></span>Datos<span data-icon="chevron"></span></button>
+              <div class="popover" id="data-menu" hidden>
+                <button type="button" data-action="export"><span data-icon="download"></span>Exportar JSON</button>
+                <button type="button" data-action="import"><span data-icon="upload"></span>Importar JSON</button>
+                <button type="button" data-action="restore"><span data-icon="refresh"></span>Restaurar datos iniciales</button>
+              </div>
+              <input id="import-file" type="file" accept="application/json,.json" hidden>
+            </div>
+          </div>
+          <div class="card-grid" id="card-grid" aria-live="polite"></div>
+          <div class="empty-state" id="empty-state" hidden>
+            <span class="empty-icon"><span data-icon="search"></span></span>
+            <h3>No hay tarjetas que coincidan</h3>
+            <p>Prueba otros filtros o crea una nueva tarjeta.</p>
+            <button class="button button-primary" type="button" data-action="new-card">Crear tarjeta</button>
+          </div>
+        </section>
+        </div>
+
+        <section class="templates-view" id="templates-view" aria-labelledby="templates-title" hidden>
+          <header class="templates-hero">
+            <div>
+              <span class="eyebrow">Identidad visual controlada</span>
+              <h1 id="templates-title">Plantillas</h1>
+              <p>Gestiona los diseños disponibles para las tarjetas digitales.</p>
+            </div>
+            <button class="button button-primary button-large" type="button" data-template-action="create-variant"><span data-icon="plus"></span>Crear variante</button>
+          </header>
+
+          <div class="template-toolbar" aria-label="Buscar y filtrar plantillas">
+            <label class="template-search"><span data-icon="search"></span><span class="sr-only">Buscar plantillas</span><input id="template-search" type="search" placeholder="Buscar por nombre"></label>
+            <label><span class="sr-only">Filtrar plantillas</span><select id="template-filter"><option value="all">Todas</option><option value="system">Sistema</option><option value="custom">Personalizadas</option><option value="archived">Archivadas</option></select></label>
+          </div>
+
+          <section class="template-metrics" aria-label="Resumen de plantillas">
+            <article><span class="template-metric-icon orange"><span data-icon="layout"></span></span><div><strong id="template-total-count">0</strong><span>Total de plantillas</span></div></article>
+            <article><span class="template-metric-icon navy"><span data-icon="check"></span></span><div><strong id="template-default-name">—</strong><span>Predeterminada</span></div></article>
+            <article><span class="template-metric-icon violet"><span data-icon="edit"></span></span><div><strong id="template-custom-count">0</strong><span>Personalizadas</span></div></article>
+            <article><span class="template-metric-icon blue"><span data-icon="users"></span></span><div><strong id="template-custom-card-count">0</strong><span>Tarjetas personalizadas</span></div></article>
+          </section>
+
+          <section class="templates-panel">
+            <div class="templates-panel-heading"><div><h2>Diseños disponibles</h2><p id="template-results-label">3 plantillas</p></div></div>
+            <div class="no-custom-templates" id="no-custom-templates" hidden>
+              <span class="no-custom-icon"><span data-icon="edit"></span></span>
+              <div><strong>Sin plantillas personalizadas</strong><p>Crea una variante controlada a partir de cualquiera de los diseños del sistema.</p></div>
+              <button class="button button-secondary" type="button" data-template-action="create-variant">Crear primera variante</button>
+            </div>
+            <div class="templates-grid" id="templates-grid" aria-live="polite"></div>
+            <div class="template-empty-state" id="templates-empty" hidden><span data-icon="search"></span><h3>Sin resultados</h3><p>Prueba otro término o cambia el filtro.</p><button class="button button-secondary" type="button" data-template-action="clear-filters">Limpiar filtros</button></div>
+          </section>
+        </section>
+
+        <section class="analytics-view" id="stats-view" aria-labelledby="analytics-title" hidden>
+          <header class="analytics-hero">
+            <div>
+              <span class="eyebrow">Actividad de tarjetas</span>
+              <h1 id="analytics-title">Estadísticas</h1>
+              <p>Analiza el uso y la interacción de las tarjetas digitales.</p>
+            </div>
+            <div class="analytics-hero-actions">
+              <span class="analytics-mode-badge empty" id="analytics-mode-badge">Sin datos</span>
+              <div class="analytics-menu-wrap">
+                <button class="button button-primary" id="analytics-export-button" type="button" aria-expanded="false"><span data-icon="download"></span>Exportar datos</button>
+                <div class="analytics-menu" id="analytics-export-menu" hidden>
+                  <button type="button" data-stats-action="export-csv"><span data-icon="download"></span>Exportar resumen CSV</button>
+                  <button type="button" data-stats-action="export-json"><span data-icon="database"></span>Exportar eventos JSON</button>
+                </div>
+              </div>
+              <div class="analytics-menu-wrap">
+                <button class="button button-secondary" id="analytics-options-button" type="button" aria-expanded="false"><span data-icon="more"></span>Opciones</button>
+                <div class="analytics-menu" id="analytics-options-menu" hidden>
+                  <button type="button" data-stats-action="load-demo"><span data-icon="chart"></span>Cargar datos de demostración</button>
+                  <button type="button" data-stats-action="delete-demo"><span data-icon="refresh"></span>Eliminar datos de demostración</button>
+                  <button class="danger" type="button" data-stats-action="clear-analytics"><span data-icon="database"></span>Limpiar analítica local</button>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <div class="analytics-privacy"><span data-icon="lock"></span><p><strong>Datos locales.</strong> En esta versión, las estadísticas se almacenan únicamente en este navegador. No se registran IP, geolocalización, cookies ni datos personales del visitante. La analítica centralizada y multiusuario requerirá un backend con control de acceso.</p></div>
+          <div class="analytics-error" id="analytics-error" role="alert" hidden>No se ha podido leer el historial local. Puedes limpiar únicamente la analítica desde el menú Opciones.</div>
+          <div class="analytics-capacity" id="analytics-capacity" role="status" hidden>El historial local ha alcanzado su capacidad. Al superar 10.000 eventos se conservan los más recientes.</div>
+
+          <button class="button button-secondary analytics-filter-toggle" id="analytics-filter-toggle" type="button" aria-expanded="false" aria-controls="analytics-filters"><span data-icon="filter"></span>Filtros</button>
+          <form class="analytics-filters" id="analytics-filters">
+            <label>Periodo<select id="analytics-period"><option value="today">Hoy</option><option value="7d">Últimos 7 días</option><option value="30d" selected>Últimos 30 días</option><option value="90d">Últimos 90 días</option><option value="all">Todo el periodo</option><option value="custom">Rango personalizado</option></select></label>
+            <div class="analytics-custom-dates" id="analytics-custom-dates" hidden><label>Desde<input type="date" id="analytics-date-from"></label><label>Hasta<input type="date" id="analytics-date-to"></label></div>
+            <label>Tarjeta o empleado<select id="analytics-card-filter"><option value="">Todas las tarjetas</option></select></label>
+            <label>Departamento<select id="analytics-department-filter"><option value="">Todos los departamentos</option></select></label>
+            <label>Tipo de evento<select id="analytics-event-filter"><option value="all">Todos los eventos</option></select></label>
+            <label>Fuente<select id="analytics-source-filter"><option value="all">Todas las fuentes reales</option><option value="qr">QR</option><option value="shared_link">Enlace compartido</option><option value="copied_link">Enlace copiado</option><option value="direct">Directo</option><option value="other">Otros</option><option value="preview">Previews administrativas · depuración</option></select></label>
+            <label>Origen de datos<select id="analytics-data-mode"><option value="real">Actividad local real</option><option value="demo">Demostración</option></select></label>
+            <button class="button button-secondary" type="button" data-stats-action="reset-filters">Restablecer filtros</button>
+          </form>
+
+          <div class="analytics-empty" id="analytics-empty" hidden>
+            <span class="analytics-empty-icon"><span data-icon="chart"></span></span><div><h2>No hay actividad registrada todavía.</h2><p>Abre o comparte una tarjeta para comenzar a registrar actividad en este navegador.</p></div><div><button class="button button-secondary" type="button" data-stats-action="open-first-card">Ver una tarjeta</button><button class="button button-primary" type="button" data-stats-action="load-demo">Cargar datos de demostración</button></div>
+          </div>
+          <div class="analytics-empty compact" id="analytics-no-results" hidden><div><h2>No hay datos para los filtros seleccionados.</h2><p>Prueba otro periodo, tarjeta o tipo de evento.</p></div><button class="button button-secondary" type="button" data-stats-action="reset-filters">Restablecer filtros</button></div>
+
+          <section class="analytics-metrics" id="analytics-metrics" aria-label="Métricas del periodo"></section>
+
+          <section class="analytics-panel analytics-chart-panel">
+            <header class="analytics-panel-heading"><div><span class="eyebrow">Evolución</span><h2>Actividad en el tiempo</h2><p id="analytics-chart-subtitle">Agrupación diaria para el periodo seleccionado.</p></div><fieldset class="analytics-series" id="analytics-series"><legend class="sr-only">Series visibles</legend><label><input type="checkbox" value="views" checked><i class="views"></i>Vistas</label><label><input type="checkbox" value="qr" checked><i class="qr"></i>QR</label><label><input type="checkbox" value="interactions" checked><i class="interactions"></i>Interacciones</label><label><input type="checkbox" value="vcard" checked><i class="vcard"></i>VCF</label></fieldset></header>
+            <div class="analytics-chart-wrap"><div class="analytics-chart" id="analytics-chart" role="img" aria-label="Gráfico de evolución de actividad"></div><div class="analytics-chart-tooltip" id="analytics-chart-tooltip" hidden></div></div>
+            <details class="analytics-chart-accessible"><summary>Ver alternativa textual del gráfico</summary><div class="analytics-table-scroll"><table><thead><tr><th>Periodo</th><th>Vistas</th><th>QR</th><th>Interacciones</th><th>VCF</th></tr></thead><tbody id="analytics-chart-table"></tbody></table></div></details>
+          </section>
+
+          <section class="analytics-panel analytics-ranking-panel">
+            <header class="analytics-panel-heading"><div><span class="eyebrow">Ranking por tarjeta</span><h2>Tarjetas con mayor actividad</h2><p>La agregación se realiza por ID de tarjeta, nunca por email.</p></div><div class="analytics-ranking-controls"><label>Ordenar por<select id="analytics-ranking-sort"><option value="views">Vistas</option><option value="qr">QR</option><option value="interactions">Interacciones</option><option value="vcard">Descargas</option><option value="interactionRate">Tasa</option></select></label><button class="button button-secondary" id="analytics-ranking-all" type="button">Ver todas</button></div></header>
+            <div class="analytics-table-scroll"><table class="analytics-ranking-table"><thead><tr><th>Pos.</th><th>Empleado y tarjeta</th><th>Departamento</th><th>Vistas</th><th>QR</th><th>Interacciones</th><th>VCF</th><th><span title="Sesiones con interacción divididas entre sesiones con vista">Tasa</span></th></tr></thead><tbody id="analytics-ranking-body"></tbody></table></div>
+            <div class="analytics-ranking-cards" id="analytics-ranking-cards"></div>
+            <p class="analytics-inline-empty" id="analytics-ranking-empty" hidden>No hay tarjetas con actividad para estos filtros.</p>
+          </section>
+
+          <div class="analytics-distribution-grid">
+            <section class="analytics-panel"><header class="analytics-panel-heading"><div><span class="eyebrow">Acciones</span><h2>Distribución de interacciones</h2></div></header><div class="analytics-bars" id="analytics-interaction-bars"></div></section>
+            <section class="analytics-panel"><header class="analytics-panel-heading"><div><span class="eyebrow">Atribución</span><h2>Origen de acceso</h2><p title="El origen solo se atribuye como QR cuando la URL contiene source=qr.">Determinado por el parámetro seguro de la URL.</p></div></header><div class="analytics-bars" id="analytics-source-bars"></div></section>
+            <section class="analytics-panel"><header class="analytics-panel-heading"><div><span class="eyebrow">Dispositivos</span><h2>Tipo de dispositivo</h2><p>Clasificación aproximada según el ancho de pantalla.</p></div></header><div class="analytics-bars" id="analytics-device-bars"></div></section>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="editor-overlay" id="editor-overlay" hidden>
+    <section class="editor-dialog" role="dialog" aria-modal="true" aria-labelledby="editor-title">
+      <header class="editor-header">
+        <div>
+          <button class="text-button" type="button" data-action="close-editor"><span data-icon="arrow-left"></span>Volver</button>
+          <h2 id="editor-title">Nueva tarjeta</h2>
+          <span class="save-indicator" id="save-indicator">Sin guardar</span>
+        </div>
+        <div class="editor-header-actions">
+          <button class="button button-secondary" type="button" data-action="save-draft">Guardar borrador</button>
+          <button class="button button-primary" type="submit" form="card-form"><span data-icon="save"></span>Guardar cambios</button>
+        </div>
+      </header>
+      <div class="mobile-editor-tabs" role="tablist" aria-label="Vista del editor">
+        <button type="button" role="tab" aria-selected="true" data-editor-tab="form">Editar</button>
+        <button type="button" role="tab" aria-selected="false" data-editor-tab="preview">Vista previa</button>
+      </div>
+      <div class="editor-body">
+        <form id="card-form" class="editor-form" novalidate>
+          <input type="hidden" name="id">
+          <section class="form-section">
+            <div class="section-heading"><span>01</span><div><h3>Datos personales</h3><p>Información principal del empleado.</p></div></div>
+            <div class="photo-field">
+              <div class="photo-preview" id="photo-preview"><span data-icon="user"></span></div>
+              <div><label class="button button-secondary" for="photo-input"><span data-icon="image"></span>Subir fotografía</label><input id="photo-input" name="photoFile" type="file" accept="image/png,image/jpeg,image/webp" hidden><p>PNG, JPG o WebP. Máximo 1 MB.</p><button class="text-button danger" type="button" data-action="remove-photo">Eliminar foto</button></div>
+            </div>
+            <div class="form-grid">
+              <label>Nombre <span>*</span><input name="firstName" required autocomplete="given-name"><small class="field-error"></small></label>
+              <label>Apellidos <span>*</span><input name="lastName" required autocomplete="family-name"><small class="field-error"></small></label>
+              <label>Puesto <span>*</span><input name="jobTitle" required autocomplete="organization-title"><small class="field-error"></small></label>
+              <label>Departamento <span>*</span><input name="department" required><small class="field-error"></small></label>
+              <label>Ciudad<input name="city" autocomplete="address-level2"></label>
+              <label>Pronombres<input name="pronouns" placeholder="Opcional"></label>
+              <label class="span-2">Biografía<textarea name="bio" rows="3" maxlength="220" placeholder="Una descripción breve y profesional"></textarea></label>
+            </div>
+          </section>
+          <section class="form-section">
+            <div class="section-heading"><span>02</span><div><h3>Contacto</h3><p>Canales que aparecerán en la tarjeta.</p></div></div>
+            <div class="form-grid">
+              <label>Email corporativo <span>*</span><input name="email" type="email" required autocomplete="email"><small class="field-error"></small></label>
+              <label>Teléfono<input name="phone" type="tel" autocomplete="tel"></label>
+              <label>Teléfono secundario<input name="mobile" type="tel"></label>
+              <label>Ubicación<input name="location" autocomplete="street-address"></label>
+              <label>Web<input name="website" type="url" placeholder="https://lognext.com"><small class="field-error"></small></label>
+              <label>LinkedIn<input name="linkedin" type="url" placeholder="https://linkedin.com/in/..."><small class="field-error"></small></label>
+              <label class="span-2">Enlace adicional<input name="customLink" type="url" placeholder="https://..."><small class="field-error"></small></label>
+            </div>
+          </section>
+          <section class="form-section">
+            <div class="section-heading"><span>03</span><div><h3>Diseño y publicación</h3><p>Elige la apariencia y URL de la tarjeta.</p></div></div>
+            <div class="form-grid">
+              <label>Nombre interno <span>*</span><input name="cardName" required><small class="field-error"></small></label>
+              <label>Slug público <span>*</span><div class="input-prefix"><span>/card.html?id=</span><input name="slug" required pattern="[a-z0-9-]+"></div><small class="field-error"></small></label>
+              <label>Estado<select name="status"><option value="active">Activa</option><option value="draft">Borrador</option><option value="disabled">Desactivada</option></select></label>
+              <label>Idioma<select name="language"><option value="es">Español</option><option value="en">English</option></select></label>
+            </div>
+            <fieldset class="template-picker" id="card-template-picker">
+              <legend>Plantilla visual</legend>
+            </fieldset>
+            <fieldset class="color-picker">
+              <legend>Color de acento</legend>
+              <label style="--color:#FA3C0F"><input type="radio" name="accentColor" value="#FA3C0F" checked><span></span><span class="sr-only">Naranja</span></label>
+              <label style="--color:#FFFA96"><input type="radio" name="accentColor" value="#FFFA96"><span></span><span class="sr-only">Amarillo</span></label>
+              <label style="--color:#64F07D"><input type="radio" name="accentColor" value="#64F07D"><span></span><span class="sr-only">Verde</span></label>
+              <label style="--color:#3CE6E6"><input type="radio" name="accentColor" value="#3CE6E6"><span></span><span class="sr-only">Turquesa</span></label>
+              <label style="--color:#3791F5"><input type="radio" name="accentColor" value="#3791F5"><span></span><span class="sr-only">Azul</span></label>
+              <label style="--color:#C896FF"><input type="radio" name="accentColor" value="#C896FF"><span></span><span class="sr-only">Violeta</span></label>
+            </fieldset>
+            <fieldset class="visibility-list">
+              <legend>Campos visibles</legend>
+              <label><input type="checkbox" name="visible_phone" checked><span>Teléfono</span></label>
+              <label><input type="checkbox" name="visible_email" checked><span>Email</span></label>
+              <label><input type="checkbox" name="visible_city" checked><span>Ciudad</span></label>
+              <label><input type="checkbox" name="visible_bio" checked><span>Biografía</span></label>
+              <label><input type="checkbox" name="visible_linkedin" checked><span>LinkedIn</span></label>
+              <label><input type="checkbox" name="visible_website" checked><span>Web</span></label>
+            </fieldset>
+          </section>
+          <div class="danger-zone" id="danger-zone" hidden>
+            <div><strong>Eliminar tarjeta</strong><p>Esta acción no se puede deshacer.</p></div>
+            <button class="button button-danger" type="button" data-action="delete-current">Eliminar</button>
+          </div>
+        </form>
+        <aside class="editor-preview">
+          <div class="preview-toolbar">
+            <div><span class="live-dot"></span><strong>Vista previa en directo</strong></div>
+            <button class="icon-button" type="button" data-action="open-current-public" aria-label="Abrir vista pública"><span data-icon="external"></span></button>
+          </div>
+          <div class="phone-frame"><div id="live-preview" class="digital-card"></div></div>
+          <p>La tarjeta se adapta automáticamente a cualquier pantalla.</p>
+        </aside>
+      </div>
+    </section>
+  </div>
+
+  <div class="template-modal" id="template-preview-modal" hidden>
+    <section class="template-modal-dialog preview-dialog" role="dialog" aria-modal="true" aria-labelledby="template-preview-title" tabindex="-1">
+      <header class="template-modal-header">
+        <div><span class="eyebrow">Vista previa</span><h2 id="template-preview-title">Plantilla</h2></div>
+        <button class="icon-button" type="button" data-template-action="close-preview" aria-label="Cerrar vista previa"><span data-icon="close"></span></button>
+      </header>
+      <div class="preview-options">
+        <div class="device-switch" role="group" aria-label="Tamaño de previsualización">
+          <button type="button" class="active" data-preview-device="mobile">Móvil</button>
+          <button type="button" data-preview-device="tablet">Tablet</button>
+          <button type="button" data-preview-device="desktop">Escritorio</button>
+        </div>
+        <label>Ver con una tarjeta real<select id="template-preview-card"><option value="">Alex Martínez · Ejemplo</option></select></label>
+      </div>
+      <div class="template-preview-stage device-mobile" id="template-preview-stage"><div class="template-preview-frame"><div id="template-full-preview" class="digital-card"></div></div></div>
+      <footer class="template-modal-footer"><p>La previsualización no modifica ninguna tarjeta.</p><div><button class="button button-secondary" type="button" data-template-action="preview-apply">Aplicar</button><button class="button button-primary" type="button" data-template-action="preview-variant">Crear variante</button></div></footer>
+    </section>
+  </div>
+
+  <div class="template-modal" id="template-editor-modal" hidden>
+    <section class="template-modal-dialog template-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="template-editor-title" tabindex="-1">
+      <header class="template-modal-header">
+        <div><button class="text-button" type="button" data-template-action="close-editor"><span data-icon="arrow-left"></span>Volver</button><h2 id="template-editor-title">Crear variante</h2><span class="template-save-state" id="template-save-state">Sin guardar</span></div>
+        <div class="template-header-actions"><button class="button button-secondary" id="template-save-copy" type="button" data-template-action="save-copy" hidden>Guardar como nueva variante</button><button class="button button-primary" type="submit" form="template-form"><span data-icon="save"></span>Guardar plantilla</button></div>
+      </header>
+      <div class="template-mobile-tabs" role="tablist" aria-label="Vista del editor de plantillas"><button type="button" role="tab" aria-selected="true" data-template-editor-tab="form">Configuración</button><button type="button" role="tab" aria-selected="false" data-template-editor-tab="preview">Vista previa</button></div>
+      <div class="template-editor-body">
+        <form id="template-form" class="template-editor-form" novalidate>
+          <input type="hidden" name="templateId">
+          <section class="template-form-section"><div class="section-heading"><span>01</span><div><h3>Datos básicos</h3><p>Identifica la variante y su diseño de origen.</p></div></div><div class="form-grid"><label>Nombre <span>*</span><input name="name" required maxlength="70"><small class="field-error"></small></label><label>Plantilla base<select name="baseTemplateId" required></select></label><label class="span-2">Descripción<textarea name="description" rows="2" maxlength="150"></textarea></label></div></section>
+          <section class="template-form-section"><div class="section-heading"><span>02</span><div><h3>Color</h3><p>Usa presets corporativos o valores hexadecimales.</p></div></div><div class="corporate-presets" id="corporate-presets"></div><div class="template-color-grid">
+            <label>Color principal<div><input type="color" data-color-picker="backgroundColor"><input name="backgroundColor" required pattern="#[0-9A-Fa-f]{6}" maxlength="7"></div><small class="field-error"></small></label>
+            <label>Color de acento<div><input type="color" data-color-picker="accentColor"><input name="accentColor" required pattern="#[0-9A-Fa-f]{6}" maxlength="7"></div><small class="field-error"></small></label>
+            <label>Color de texto<div><input type="color" data-color-picker="textColor"><input name="textColor" required pattern="#[0-9A-Fa-f]{6}" maxlength="7"></div><small class="field-error"></small></label>
+            <label>Color secundario<div><input type="color" data-color-picker="secondaryColor"><input name="secondaryColor" required pattern="#[0-9A-Fa-f]{6}" maxlength="7"></div><small class="field-error"></small></label>
+          </div><div class="template-validation" id="template-validation" hidden></div></section>
+          <section class="template-form-section"><div class="section-heading"><span>03</span><div><h3>Marca y fotografía</h3><p>Opciones seguras para logo y retrato.</p></div></div><div class="form-grid"><label>Logo<select name="logoVariant"><option value="white">Variante blanca</option><option value="blue">Variante azul</option><option value="symbol">Símbolo</option></select></label><label>Posición<select name="logoPosition"><option value="left">Superior izquierda</option><option value="center">Superior centro</option><option value="right">Superior derecha</option></select></label><label>Forma de foto<select name="photoShape"><option value="circle">Circular</option><option value="rounded">Cuadrada redondeada</option></select></label><label>Tamaño<select name="photoSize"><option value="small">Pequeña</option><option value="medium">Media</option><option value="large">Grande</option></select></label></div></section>
+          <section class="template-form-section"><div class="section-heading"><span>04</span><div><h3>Composición</h3><p>Patrón, botones y orden dentro de límites predefinidos.</p></div></div><div class="form-grid"><label>Fondo<select name="backgroundPattern"><option value="none">Sin patrón</option><option value="diagonal-lines">Líneas diagonales</option><option value="soft-lines">Líneas suaves</option><option value="geometric-block">Bloque geométrico</option><option value="corporate-gradient">Degradado corporativo</option></select></label><label>Botones<select name="buttonStyle"><option value="solid">Sólidos</option><option value="outline">Contorno</option><option value="minimal">Minimalistas</option></select></label><label class="span-2">Orden visual<select name="contentOrder"><option value="identity-contact-social">Identidad · Contacto · Redes</option><option value="identity-social-contact">Identidad · Redes · Contacto</option><option value="contact-identity-social">Contacto · Identidad · Redes</option></select></label></div><fieldset class="template-content-options"><legend>Contenido visible</legend><label><input type="checkbox" name="showTagline">Tagline</label><label><input type="checkbox" name="showDepartment">Departamento</label><label><input type="checkbox" name="showCity">Ciudad</label></fieldset></section>
+        </form>
+        <aside class="template-editor-preview"><div class="preview-toolbar"><div><span class="live-dot"></span><strong>Vista previa en directo</strong></div></div><div class="template-editor-phone"><div id="template-live-preview" class="digital-card"></div></div><p>Los elementos esenciales de marca permanecen protegidos.</p></aside>
+      </div>
+    </section>
+  </div>
+
+  <div class="template-modal" id="template-apply-modal" hidden>
+    <section class="template-modal-dialog apply-dialog" role="dialog" aria-modal="true" aria-labelledby="template-apply-title" tabindex="-1">
+      <header class="template-modal-header"><div><span class="eyebrow">Aplicar diseño</span><h2 id="template-apply-title">Aplicar plantilla</h2></div><button class="icon-button" type="button" data-template-action="close-apply" aria-label="Cerrar"><span data-icon="close"></span></button></header>
+      <form id="template-apply-form" class="template-apply-form">
+        <div class="apply-notice"><span data-icon="check"></span><p><strong>Solo se actualizará el diseño.</strong> No se modificarán los datos de contacto, fotografía, slug ni estado.</p></div>
+        <div class="apply-config"><label>Plantilla nueva<select name="targetTemplateId" id="apply-target-template"></select></label><fieldset><legend>Modo</legend><label><input type="radio" name="applyMode" value="single">Una tarjeta</label><label><input type="radio" name="applyMode" value="multiple" checked>Varias tarjetas</label></fieldset><fieldset><legend>Color individual</legend><label><input type="radio" name="accentMode" value="preserve" checked>Conservarlo</label><label><input type="radio" name="accentMode" value="template">Usar el de la plantilla</label></fieldset></div>
+        <p class="apply-color-note"><strong>Compatibilidad de color:</strong> conserva el acento individual si forma parte de la identidad de la tarjeta, o reemplázalo explícitamente por el valor validado de la plantilla.</p>
+        <div class="apply-filters"><label><span data-icon="search"></span><span class="sr-only">Buscar tarjetas</span><input id="apply-search" type="search" placeholder="Buscar por nombre"></label><select id="apply-department" aria-label="Filtrar por departamento"><option value="">Todos los departamentos</option></select><select id="apply-status" aria-label="Filtrar por estado"><option value="">Todos los estados</option><option value="active">Activas</option><option value="draft">Borradores</option><option value="disabled">Desactivadas</option></select></div>
+        <label class="select-visible"><input type="checkbox" id="apply-select-all">Seleccionar todas las tarjetas visibles</label>
+        <div class="apply-card-list" id="apply-card-list"></div>
+        <div class="apply-empty" id="apply-empty" hidden>No hay tarjetas que coincidan con estos filtros.</div>
+        <div class="apply-summary"><div><span>Plantilla actual</span><strong id="apply-current-name">—</strong></div><div><span>Plantilla nueva</span><strong id="apply-template-name">—</strong></div><div><span>Tarjetas afectadas</span><strong id="apply-count">0</strong></div></div>
+        <footer class="template-modal-footer"><button class="button button-secondary" type="button" data-template-action="close-apply">Cancelar</button><button class="button button-primary" type="submit">Aplicar plantilla</button></footer>
+      </form>
+    </section>
+  </div>
+
+  <div class="analytics-detail-modal" id="analytics-detail-modal" hidden>
+    <section class="analytics-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="analytics-detail-title" tabindex="-1">
+      <header class="analytics-detail-header"><div><span class="eyebrow">Detalle por tarjeta</span><h2 id="analytics-detail-title">Actividad de tarjeta</h2></div><button class="icon-button" type="button" data-stats-action="close-detail" aria-label="Cerrar detalle"><span data-icon="close"></span></button></header>
+      <div class="analytics-detail-body" id="analytics-detail-body"></div>
+      <footer class="analytics-detail-footer"><button class="button button-secondary" type="button" data-stats-detail-action="view">Ver tarjeta</button><button class="button button-secondary" type="button" data-stats-detail-action="copy">Copiar enlace</button><button class="button button-secondary" type="button" data-stats-detail-action="edit">Abrir editor</button><button class="button button-primary" type="button" data-stats-detail-action="export">Exportar esta tarjeta</button></footer>
+    </section>
+  </div>
+
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <script type="module" src="assets/js/app.js"></script>
 </body>
 </html>
