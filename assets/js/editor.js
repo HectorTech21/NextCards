@@ -19,8 +19,11 @@ let toast=()=>{};
 const node=(tag,className,text)=>{const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=text;return element};
 
 function swatchClass(template){
-  if(template.baseTemplateId==="clean-light")return "light";
-  if(template.baseTemplateId==="meaningful-tech")return "tech";
+  const baseId=template.type==="system"?template.id:template.baseTemplateId;
+  if(["clean-light","orange-pulse","talent-focus","minimal-corporate"].includes(baseId))return baseId==="orange-pulse"?"light pulse":baseId==="talent-focus"?"light focus":"light";
+  if(["meaningful-tech","blue-grid"].includes(baseId))return baseId==="blue-grid"?"tech grid":"tech";
+  if(baseId==="executive-lines")return "executive";
+  if(baseId==="premium-dark")return "premium";
   return "navy";
 }
 
@@ -183,7 +186,17 @@ function openPublic(){
   const slug=form.elements.slug.value;if(!slug){toast("Define primero la URL pública.","error");return}
   window.open(getSourcedPublicCardUrl({slug},"editor_preview"),"_blank","noopener,noreferrer");
 }
-export function openEditor(id=""){autoSlug=!id;populate(id?cardService.get(id):emptyCard());overlay.hidden=false;document.body.style.overflow="hidden";setTimeout(()=>form.elements.firstName.focus(),50)}
+export function openEditor(id="",{focusTemplate=false}={}){
+  autoSlug=!id;populate(id?cardService.get(id):emptyCard());overlay.hidden=false;document.body.style.overflow="hidden";
+  setTimeout(()=>{
+    if(!focusTemplate){form.elements.firstName.focus();return}
+    const picker=document.querySelector("#card-template-picker");
+    picker.classList.add("template-picker-highlight");
+    picker.scrollIntoView({block:"center",behavior:"smooth"});
+    picker.querySelector('input[name="template"]:checked')?.focus();
+    setTimeout(()=>picker.classList.remove("template-picker-highlight"),1800);
+  },50);
+}
 export function closeEditor(){overlay.hidden=true;document.body.style.overflow=""}
 export function deleteFromDashboard(id){
   if(confirm("¿Eliminar esta tarjeta definitivamente?")){cardService.remove(id);toast("Tarjeta eliminada.","success");onSaved()}

@@ -3,6 +3,7 @@ import {cardService} from "./cards.js";
 import {setupEditor,openEditor,deleteFromDashboard} from "./editor.js";
 import {getSourcedPublicCardUrl} from "./card-export.js";
 import {setupTemplatesUI,renderTemplatesSection} from "./templates-ui.js";
+import {templateService} from "./templates-store.js";
 import {setupAnalyticsUI,renderAnalyticsSection} from "./analytics-ui.js";
 
 const iconPaths={
@@ -43,12 +44,13 @@ function createCard(card){
   const logo=node("img","employee-logo");logo.src="assets/img/logos/lognext-negative.svg";logo.alt="";
   const menuButton=createButton("","card-menu-button","toggle-menu",card.id,"more");menuButton.setAttribute("aria-label",`Más acciones para ${card.firstName}`);menuButton.setAttribute("aria-expanded","false");
   const menu=node("div","card-menu");menu.hidden=true;
-  [["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]].forEach(([label,action])=>{const b=createButton(label,action==="delete"?"danger":"",action,card.id);menu.append(b)});
+  [["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]].forEach(([label,action])=>{const b=createButton(label,action==="delete"?"danger":"",action,card.id);menu.append(b)});
   cover.append(logo,menuButton,menu);
   if(card.photo){const img=node("img","employee-photo");img.src=card.photo;img.alt=`Foto de ${card.firstName} ${card.lastName}`;cover.append(img)}else cover.append(node("div","employee-initials",initials(card)));
   const info=node("div","employee-info"),top=node("div","employee-info-top");
   top.append(node("span",`status status-${card.status}`,statusLabels[card.status]||card.status));
-  info.append(top,node("h3","",`${card.firstName} ${card.lastName}`),node("p","role",card.jobTitle),node("p","department",card.department));
+  const template=templateService.resolveTemplate(card.template,{warn:false});
+  info.append(top,node("h3","",`${card.firstName} ${card.lastName}`),node("p","role",card.jobTitle),node("p","department",card.department),node("p","card-template-name",`Plantilla · ${template.name}`));
   const email=node("a","email",card.email);email.href=`mailto:${card.email}`;info.append(email);
   const actions=node("div","card-actions");
   actions.append(createButton("Editar","button button-primary","edit",card.id),createButton("Ver tarjeta","button button-secondary","view",card.id),createButton("","icon-button","copy",card.id,"copy"));
@@ -86,6 +88,7 @@ async function copyCardLink(id){
 function handleAction(action,id,target){
   if(action==="new-card")openEditor();
   if(action==="edit")openEditor(id);
+  if(action==="template"){openEditor(id,{focusTemplate:true});showToast("Selecciona una plantilla y guarda los cambios.")}
   if(action==="view"){const card=cardService.get(id);window.open(getSourcedPublicCardUrl(card,"admin_preview"),"_blank","noopener,noreferrer")}
   if(action==="copy")copyCardLink(id).catch(()=>showToast("No se pudo copiar el enlace.","error"));
   if(action==="duplicate"){cardService.duplicate(id);showToast("Tarjeta duplicada como borrador.");refreshDepartments();renderDashboard()}

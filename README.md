@@ -20,8 +20,9 @@ También puedes usar cualquier servidor estático equivalente. No abras `index.h
 - Dieciséis tarjetas iniciales generadas desde la carga autorizada.
 - Crear, editar, duplicar, desactivar y eliminar tarjetas.
 - Editor con validaciones, fotografía y vista previa en tiempo real.
-- Gestor completo de plantillas con Corporate Navy, Clean Light y Meaningful Tech como diseños del sistema.
-- Variantes personalizadas controladas, plantilla predeterminada, previsualización y aplicación individual o masiva.
+- Gestor completo con nueve diseños del sistema: Corporate Navy, Clean Light, Meaningful Tech, Executive Lines, Orange Pulse, Blue Grid, Talent Focus, Minimal Corporate y Premium Dark.
+- Variantes personalizadas controladas, plantilla predeterminada, previews realistas y aplicación individual o masiva.
+- Cambio rápido de plantilla desde cada tarjeta y selector visual con actualización inmediata dentro del editor.
 - Estadísticas locales basadas en eventos, con filtros, comparativas, gráfico temporal SVG, ranking por tarjeta y detalle individual.
 - Modos separados de actividad local real y demostración, exportación CSV/JSON y limpieza selectiva.
 - Persistencia centralizada en `assets/js/storage.js`.
@@ -64,6 +65,7 @@ El QR se genera en el navegador mediante la librería ligera `qrcode-generator`,
 - `assets/js/vendor/qrcode-generator.js`: generador QR local de Kazuhiko Arase (MIT).
 - `scripts/generate-initial-employees.mjs`: generador reproducible de datos e imágenes.
 - `scripts/test-seed-persistence.mjs`: pruebas de inicialización, persistencia y variantes por cargo.
+- `scripts/test-templates.mjs`: pruebas del catálogo, migración, variantes, predeterminada, fallback y aplicación individual por ID.
 - `scripts/test-analytics.mjs`: pruebas de tracking, sesiones, fuentes, filtros, agregación, demo y limpieza.
 
 Los contenidos introducidos por el usuario se insertan con `textContent` y atributos DOM, no como HTML. Las URLs se validan antes de guardar y los enlaces externos usan `noopener noreferrer`.
@@ -122,9 +124,9 @@ El seed se carga una sola vez desde `assets/data/employees.json`. Las claves uti
 - `nextcards.cards.v1`: colección editable de tarjetas.
 - `nextcards.seed.version`: versión aplicada del seed; actualmente `1`.
 - `nextcards.templates.v1`: catálogo editable de plantillas.
-- `nextcards.templates.seed.version`: versión aplicada del catálogo; actualmente `1`.
+- `nextcards.templates.seed.version`: versión aplicada del catálogo; actualmente `2`.
 
-Las recargas no vuelven a insertar el seed. Las ediciones, eliminaciones, nuevas tarjetas, cambios de estado y cambios de plantilla permanecen en `localStorage`. La migración inicial elimina únicamente las tres tarjetas demo cuando coinciden exactamente con sus firmas originales; cualquier tarjeta modificada o creada manualmente se conserva.
+Las recargas no vuelven a insertar el seed. Las ediciones, eliminaciones, nuevas tarjetas, cambios de estado y cambios de plantilla permanecen en `localStorage`. La migración del catálogo incorpora diseños de sistema nuevos sin eliminar variantes personalizadas ni cambiar la plantilla predeterminada elegida. Las tarjetas con plantilla explícita conservan su diseño; las nuevas y las que no tengan una referencia válida usan la predeterminada como fallback seguro. La migración inicial de empleados elimina únicamente las tres tarjetas demo cuando coinciden exactamente con sus firmas originales; cualquier tarjeta modificada o creada manualmente se conserva.
 
 Para reinicializar únicamente NextCards desde la consola del navegador:
 

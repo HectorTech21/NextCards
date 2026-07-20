@@ -24,6 +24,13 @@ function logoSource(theme){
   return "assets/img/logos/lognext-negative.svg";
 }
 
+function taglineFor(template){
+  const baseId=template.type==="system"?template.id:template.baseTemplateId;
+  return ["meaningful-tech","executive-lines","orange-pulse","blue-grid","talent-focus","premium-dark"].includes(baseId)
+    ? "Your Meaningful Tech Partner."
+    : "Digital card by Lognext";
+}
+
 function applyTheme(container,card,template){
   const theme=template.theme;
   const accent=/^#[0-9A-F]{6}$/i.test(card.accentColor||"")?card.accentColor.toUpperCase():theme.accentColor;
@@ -72,7 +79,7 @@ export function renderCardPreview(container,card,templateOverride=null){
     "contact-identity-social":["contact","identity","social"],
   }[theme.contentOrder]||["identity","contact","social"];
   order.forEach(key=>{if(key==="identity"||blocks[key].children.length)inner.append(blocks[key])});
-  if(theme.showTagline)inner.append(el("p","dc-tagline",(template.type==="system"?template.id:template.baseTemplateId)==="meaningful-tech"?"Your Meaningful Tech Partner.":"Digital card by Lognext"));
+  if(theme.showTagline)inner.append(el("p","dc-tagline",taglineFor(template)));
   container.append(pattern,inner);
   return template;
 }

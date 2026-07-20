@@ -2,7 +2,7 @@ import {storage} from "./storage.js";
 
 export const TEMPLATES_STORAGE_KEY = "nextcards.templates.v1";
 export const TEMPLATES_VERSION_KEY = "nextcards.templates.seed.version";
-export const TEMPLATES_DATA_VERSION = 1;
+export const TEMPLATES_DATA_VERSION = 2;
 
 const SYSTEM_TIMESTAMP = "2026-07-17T00:00:00.000Z";
 const HEX_COLOR = /^#[0-9A-F]{6}$/i;
@@ -11,7 +11,7 @@ export const TEMPLATE_OPTIONS = Object.freeze({
   buttonStyles: ["solid", "outline", "minimal"],
   photoShapes: ["circle", "rounded"],
   photoSizes: ["small", "medium", "large"],
-  backgroundPatterns: ["none", "diagonal-lines", "soft-lines", "geometric-block", "corporate-gradient"],
+  backgroundPatterns: ["none", "diagonal-lines", "soft-lines", "geometric-block", "corporate-gradient", "executive-lines", "pulse-blocks", "blue-grid", "focus-frame", "premium-lines"],
   logoVariants: ["white", "blue", "symbol"],
   logoPositions: ["left", "center", "right"],
   contentOrders: ["identity-contact-social", "identity-social-contact", "contact-identity-social"],
@@ -72,6 +72,108 @@ const SYSTEM_TEMPLATES = [
       buttonStyle: "minimal", photoShape: "circle", photoSize: "small", backgroundPattern: "soft-lines",
       logoVariant: "white", logoPosition: "left", showTagline: true, showDepartment: true, showCity: true,
       contentOrder: "identity-contact-social",
+    },
+    createdAt: SYSTEM_TIMESTAMP,
+    updatedAt: SYSTEM_TIMESTAMP,
+  },
+  {
+    id: "executive-lines",
+    name: "Executive Lines",
+    description: "Líneas diagonales y jerarquía ejecutiva sobre azul marino.",
+    type: "system",
+    baseTemplateId: null,
+    status: "active",
+    isDefault: false,
+    theme: {
+      backgroundColor: "#000029", accentColor: "#FA3C0F", textColor: "#FFFFFF", mutedTextColor: "#E1E1E8", secondaryColor: "#E1E1E8",
+      buttonStyle: "solid", photoShape: "circle", photoSize: "medium", backgroundPattern: "executive-lines",
+      logoVariant: "white", logoPosition: "left", showTagline: true, showDepartment: true, showCity: true,
+      contentOrder: "identity-contact-social",
+    },
+    createdAt: SYSTEM_TIMESTAMP,
+    updatedAt: SYSTEM_TIMESTAMP,
+  },
+  {
+    id: "orange-pulse",
+    name: "Orange Pulse",
+    description: "Composición luminosa con cabecera marino y pulso naranja.",
+    type: "system",
+    baseTemplateId: null,
+    status: "active",
+    isDefault: false,
+    theme: {
+      backgroundColor: "#FFFFFF", accentColor: "#FA3C0F", textColor: "#000029", mutedTextColor: "#000029", secondaryColor: "#000029",
+      buttonStyle: "solid", photoShape: "rounded", photoSize: "medium", backgroundPattern: "pulse-blocks",
+      logoVariant: "white", logoPosition: "center", showTagline: true, showDepartment: true, showCity: true,
+      contentOrder: "identity-contact-social",
+    },
+    createdAt: SYSTEM_TIMESTAMP,
+    updatedAt: SYSTEM_TIMESTAMP,
+  },
+  {
+    id: "blue-grid",
+    name: "Blue Grid",
+    description: "Retícula azul sutil para perfiles tecnológicos y digitales.",
+    type: "system",
+    baseTemplateId: null,
+    status: "active",
+    isDefault: false,
+    theme: {
+      backgroundColor: "#000029", accentColor: "#3791F5", textColor: "#FFFFFF", mutedTextColor: "#E1E1E8", secondaryColor: "#3CE6E6",
+      buttonStyle: "outline", photoShape: "rounded", photoSize: "small", backgroundPattern: "blue-grid",
+      logoVariant: "white", logoPosition: "left", showTagline: true, showDepartment: true, showCity: true,
+      contentOrder: "identity-social-contact",
+    },
+    createdAt: SYSTEM_TIMESTAMP,
+    updatedAt: SYSTEM_TIMESTAMP,
+  },
+  {
+    id: "talent-focus",
+    name: "Talent Focus",
+    description: "Retrato protagonista y llamadas de contacto muy visibles.",
+    type: "system",
+    baseTemplateId: null,
+    status: "active",
+    isDefault: false,
+    theme: {
+      backgroundColor: "#FFFFFF", accentColor: "#FA3C0F", textColor: "#000029", mutedTextColor: "#000029", secondaryColor: "#000029",
+      buttonStyle: "solid", photoShape: "circle", photoSize: "large", backgroundPattern: "focus-frame",
+      logoVariant: "white", logoPosition: "center", showTagline: true, showDepartment: true, showCity: true,
+      contentOrder: "identity-contact-social",
+    },
+    createdAt: SYSTEM_TIMESTAMP,
+    updatedAt: SYSTEM_TIMESTAMP,
+  },
+  {
+    id: "minimal-corporate",
+    name: "Minimal Corporate",
+    description: "Máxima claridad, espacio en blanco y acentos naranjas discretos.",
+    type: "system",
+    baseTemplateId: null,
+    status: "active",
+    isDefault: false,
+    theme: {
+      backgroundColor: "#FFFFFF", accentColor: "#FA3C0F", textColor: "#000029", mutedTextColor: "#000029", secondaryColor: "#E1E1E8",
+      buttonStyle: "minimal", photoShape: "rounded", photoSize: "small", backgroundPattern: "none",
+      logoVariant: "blue", logoPosition: "left", showTagline: false, showDepartment: true, showCity: true,
+      contentOrder: "identity-social-contact",
+    },
+    createdAt: SYSTEM_TIMESTAMP,
+    updatedAt: SYSTEM_TIMESTAMP,
+  },
+  {
+    id: "premium-dark",
+    name: "Premium Dark",
+    description: "Diseño oscuro, sobrio y premium para dirección y perfiles ejecutivos.",
+    type: "system",
+    baseTemplateId: null,
+    status: "active",
+    isDefault: false,
+    theme: {
+      backgroundColor: "#000029", accentColor: "#FA3C0F", textColor: "#FFFFFF", mutedTextColor: "#E1E1E8", secondaryColor: "#E1E1E8",
+      buttonStyle: "outline", photoShape: "rounded", photoSize: "medium", backgroundPattern: "premium-lines",
+      logoVariant: "white", logoPosition: "right", showTagline: true, showDepartment: true, showCity: true,
+      contentOrder: "identity-social-contact",
     },
     createdAt: SYSTEM_TIMESTAMP,
     updatedAt: SYSTEM_TIMESTAMP,
@@ -368,7 +470,7 @@ export const templateService = {
     return this.getTemplateById(id);
   },
   getCardsUsingTemplate(id) {
-    return storage.getCards().filter(card => card.template === id);
+    return storage.getCards().filter(card => this.resolveTemplate(card.template, {warn: false}).id === id);
   },
   getTemplateUsageCount(id) {
     return this.getCardsUsingTemplate(id).length;
