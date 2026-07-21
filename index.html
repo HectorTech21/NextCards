@@ -7,14 +7,15 @@
   <meta name="theme-color" content="#000029">
   <title>NextCards · Digital cards by Lognext</title>
   <link rel="icon" href="assets/img/logos/lognext-symbol-positive.svg">
-  <link rel="stylesheet" href="assets/css/variables.css">
-  <link rel="stylesheet" href="assets/css/global.css">
-  <link rel="stylesheet" href="assets/css/card-actions.css">
-  <link rel="stylesheet" href="assets/css/dashboard.css">
-  <link rel="stylesheet" href="assets/css/editor.css">
-  <link rel="stylesheet" href="assets/css/templates.css">
-  <link rel="stylesheet" href="assets/css/analytics.css">
-  <link rel="stylesheet" href="assets/css/settings.css">
+  <link rel="stylesheet" href="assets/css/variables.css?v=1.2.0">
+  <link rel="stylesheet" href="assets/css/global.css?v=1.2.0">
+  <link rel="stylesheet" href="assets/css/card-actions.css?v=1.2.0">
+  <link rel="stylesheet" href="assets/css/dashboard.css?v=1.2.0">
+  <link rel="stylesheet" href="assets/css/quick-view.css?v=1.3.1">
+  <link rel="stylesheet" href="assets/css/editor.css?v=1.2.0">
+  <link rel="stylesheet" href="assets/css/templates.css?v=1.2.0">
+  <link rel="stylesheet" href="assets/css/analytics.css?v=1.2.0">
+  <link rel="stylesheet" href="assets/css/settings.css?v=1.2.0">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Saltar al contenido</a>
@@ -25,7 +26,7 @@
         <span><strong data-app-name>NextCards</strong><small data-app-subtitle>Digital cards by Lognext</small></span>
       </div>
       <nav class="main-nav">
-        <button class="nav-item active" type="button" data-section="cards"><span data-icon="cards"></span>Tarjetas</button>
+        <button class="nav-item active" type="button" data-section="cards" aria-current="page"><span data-icon="cards"></span>Tarjetas</button>
         <button class="nav-item" type="button" data-section="employees"><span data-icon="people"></span>Empleados</button>
         <button class="nav-item" type="button" data-section="templates"><span data-icon="layout"></span>Plantillas</button>
         <button class="nav-item" type="button" data-section="stats"><span data-icon="chart"></span>Estadísticas</button>
@@ -54,9 +55,9 @@
           <kbd>⌘ K</kbd>
         </div>
         <div class="topbar-actions">
-          <button class="icon-button" type="button" data-action="notifications" aria-label="Notificaciones"><span data-icon="bell"></span><i></i></button>
+          <button class="icon-button" type="button" data-action="notifications" aria-label="Notificaciones"><span data-icon="bell"></span></button>
           <button class="button button-primary" type="button" data-action="new-card"><span data-icon="plus"></span>Nueva tarjeta</button>
-          <button class="avatar-button" type="button" aria-label="Menú de administrador"><span class="avatar avatar-sm">HP</span></button>
+          <button class="avatar-button" type="button" data-action="admin-info" aria-label="Información de la sesión de administrador"><span class="avatar avatar-sm">HP</span></button>
         </div>
       </header>
 
@@ -400,17 +401,83 @@
     </div>
   </div>
 
+  <div class="quick-view-overlay" id="quick-view-overlay" hidden>
+    <aside class="quick-view-drawer" id="quick-view-drawer" role="dialog" aria-modal="true" aria-labelledby="quick-view-title" aria-describedby="quick-view-description" tabindex="-1">
+      <header class="quick-view-header">
+        <div>
+          <span class="eyebrow">Consulta rápida</span>
+          <h2 id="quick-view-title">Vista rápida</h2>
+          <p id="quick-view-person-name">Selecciona una tarjeta</p>
+          <p class="sr-only" id="quick-view-description">Resumen administrativo de la tarjeta seleccionada.</p>
+        </div>
+        <button class="icon-button" type="button" data-quick-view-action="close" aria-label="Cerrar vista rápida"><span data-icon="close"></span></button>
+      </header>
+
+      <div class="quick-view-scroll">
+        <section class="quick-view-section quick-view-identity" aria-labelledby="quick-view-name">
+          <div class="quick-view-avatar" id="quick-view-avatar"></div>
+          <div class="quick-view-identity-copy">
+            <span class="status status-draft" id="quick-view-status">Borrador</span>
+            <h3 id="quick-view-name">Nombre de la persona</h3>
+            <p class="quick-view-role" id="quick-view-role">Cargo</p>
+            <p class="quick-view-meta" id="quick-view-meta">Departamento · Ciudad</p>
+          </div>
+        </section>
+
+        <section class="quick-view-section" aria-labelledby="quick-view-preview-title">
+          <header class="quick-view-section-heading">
+            <div><h3 id="quick-view-preview-title">Tarjeta pública</h3><p>Preview real y no interactiva.</p></div>
+          </header>
+          <div class="quick-view-preview-stage">
+            <div class="quick-view-preview-frame"><div class="digital-card" id="quick-view-card-preview"></div></div>
+          </div>
+        </section>
+
+        <section class="quick-view-section" id="quick-view-contact-section" aria-labelledby="quick-view-contact-title">
+          <header class="quick-view-section-heading"><div><h3 id="quick-view-contact-title">Datos de contacto</h3><p>Solo se muestran los datos disponibles.</p></div></header>
+          <div class="quick-view-contact-list" id="quick-view-contact-list"></div>
+        </section>
+
+        <section class="quick-view-section" aria-labelledby="quick-view-card-data-title">
+          <header class="quick-view-section-heading"><div><h3 id="quick-view-card-data-title">Información de tarjeta</h3><p>Datos de publicación y mantenimiento.</p></div></header>
+          <dl class="quick-view-details" id="quick-view-details"></dl>
+        </section>
+
+        <section class="quick-view-section quick-view-qr-layout" aria-labelledby="quick-view-qr-title">
+          <div class="quick-view-qr-copy">
+            <h3 id="quick-view-qr-title">Código QR</h3>
+            <p>Abre exactamente esta tarjeta pública.</p>
+            <code class="quick-view-public-url" id="quick-view-public-url">URL pública</code>
+            <p class="quick-view-url-unavailable" id="quick-view-url-unavailable" hidden>La URL pública no está disponible; copiar y compartir están desactivados.</p>
+            <p class="quick-view-qr-message" id="quick-view-qr-message" hidden>QR no disponible.</p>
+          </div>
+          <div class="quick-view-qr" id="quick-view-qr" aria-live="polite"></div>
+        </section>
+      </div>
+
+      <footer class="quick-view-footer">
+        <button class="button button-primary" type="button" data-quick-view-action="edit"><span data-icon="edit"></span>Editar tarjeta</button>
+        <button class="button button-secondary" id="quick-view-open" type="button" data-quick-view-action="open"><span data-icon="external"></span>Abrir tarjeta</button>
+        <div class="quick-view-secondary-actions">
+          <button class="button button-secondary" id="quick-view-copy" type="button" data-quick-view-action="copy"><span data-icon="copy"></span>Copiar</button>
+          <button class="button button-secondary" id="quick-view-share" type="button" data-quick-view-action="share"><span data-icon="share"></span>Compartir</button>
+          <button class="button button-secondary" id="quick-view-download-qr" type="button" data-quick-view-action="download-qr"><span data-icon="download"></span>Descargar QR</button>
+        </div>
+      </footer>
+    </aside>
+  </div>
+
   <div class="editor-overlay" id="editor-overlay" hidden>
-    <section class="editor-dialog" role="dialog" aria-modal="true" aria-labelledby="editor-title">
+    <section class="editor-dialog" role="dialog" aria-modal="true" aria-labelledby="editor-title" tabindex="-1">
       <header class="editor-header">
         <div>
           <button class="text-button" type="button" data-action="close-editor"><span data-icon="arrow-left"></span>Volver</button>
           <h2 id="editor-title">Nueva tarjeta</h2>
-          <span class="save-indicator" id="save-indicator">Sin guardar</span>
+          <span class="save-indicator" id="save-indicator" role="status" aria-live="polite">Sin guardar</span>
         </div>
         <div class="editor-header-actions">
           <button class="button button-secondary" type="button" data-action="save-draft">Guardar borrador</button>
-          <button class="button button-primary" type="submit" form="card-form"><span data-icon="save"></span>Guardar cambios</button>
+          <button class="button button-primary" type="submit" form="card-form" aria-label="Guardar cambios"><span data-icon="save"></span><span>Guardar cambios</span></button>
         </div>
       </header>
       <div class="mobile-editor-tabs" role="tablist" aria-label="Vista del editor">
@@ -424,16 +491,16 @@
             <div class="section-heading"><span>01</span><div><h3>Datos personales</h3><p>Información principal del empleado.</p></div></div>
             <div class="photo-field">
               <div class="photo-preview" id="photo-preview"><span data-icon="user"></span></div>
-              <div><label class="button button-secondary" for="photo-input"><span data-icon="image"></span>Subir fotografía</label><input id="photo-input" name="photoFile" type="file" accept="image/png,image/jpeg,image/webp" hidden><p>PNG, JPG o WebP. Máximo 1 MB.</p><button class="text-button danger" type="button" data-action="remove-photo">Eliminar foto</button></div>
+              <div><label class="button button-secondary" for="photo-input"><span data-icon="image"></span>Subir fotografía</label><input id="photo-input" name="photoFile" type="file" accept="image/png,image/jpeg,image/webp" hidden><p>PNG, JPG o WebP. Máximo 1 MB.</p><div class="photo-tools"><label class="photo-position-control" id="photo-position-control">Encuadre<select name="photoPosition"><option value="center">Centrado</option><option value="top">Parte superior</option><option value="bottom">Parte inferior</option></select></label><button class="text-button danger" type="button" data-action="remove-photo" id="remove-photo-button">Eliminar foto</button></div></div>
             </div>
             <div class="form-grid">
-              <label>Nombre <span>*</span><input name="firstName" required autocomplete="given-name"><small class="field-error"></small></label>
-              <label>Apellidos <span>*</span><input name="lastName" required autocomplete="family-name"><small class="field-error"></small></label>
-              <label>Puesto <span>*</span><input name="jobTitle" required autocomplete="organization-title"><small class="field-error"></small></label>
-              <label>Departamento <span>*</span><input name="department" required><small class="field-error"></small></label>
+              <label>Nombre <span>*</span><input name="firstName" required maxlength="60" autocomplete="given-name"><small class="field-error"></small></label>
+              <label>Apellidos <span>*</span><input name="lastName" required maxlength="90" autocomplete="family-name"><small class="field-error"></small></label>
+              <label>Puesto <span>*</span><input name="jobTitle" required maxlength="100" autocomplete="organization-title"><small class="field-error"></small></label>
+              <label>Departamento <span>*</span><input name="department" required maxlength="80"><small class="field-error"></small></label>
               <label>Ciudad<input name="city" autocomplete="address-level2"></label>
               <label>Pronombres<input name="pronouns" placeholder="Opcional"></label>
-              <label class="span-2">Biografía<textarea name="bio" rows="3" maxlength="220" placeholder="Una descripción breve y profesional"></textarea></label>
+              <label class="span-2">Biografía <small class="character-count" data-character-count="bio">0/220</small><textarea name="bio" rows="3" maxlength="220" placeholder="Una descripción breve y profesional"></textarea></label>
             </div>
           </section>
           <section class="form-section">
@@ -451,8 +518,8 @@
           <section class="form-section">
             <div class="section-heading"><span>03</span><div><h3>Diseño y publicación</h3><p>Elige la apariencia y URL de la tarjeta.</p></div></div>
             <div class="form-grid">
-              <label>Nombre interno <span>*</span><input name="cardName" required><small class="field-error"></small></label>
-              <label>Slug público <span>*</span><div class="input-prefix"><span>/card.html?id=</span><input name="slug" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*"></div><small class="field-error"></small></label>
+              <label>Nombre interno <span>*</span><input name="cardName" required maxlength="120"><small class="field-error"></small></label>
+              <div class="form-field"><span>Slug público *</span><div class="slug-tools"><label class="input-prefix"><span>/card.html?id=</span><input name="slug" required maxlength="70" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" aria-describedby="slug-help"></label><button class="icon-button" type="button" data-action="regenerate-slug" aria-label="Regenerar slug"><span data-icon="refresh"></span></button></div><small class="field-help" id="slug-help">Se genera con el nombre y, si hace falta, con el cargo.</small><small class="field-error"></small></div>
               <label>Estado<select name="status"><option value="active">Activa</option><option value="draft">Borrador</option><option value="disabled">Desactivada</option></select></label>
               <label>Idioma<select name="language"><option value="es">Español</option><option value="en">English</option></select></label>
             </div>
@@ -592,6 +659,7 @@
   </div>
 
   <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
-  <script type="module" src="assets/js/app.js"></script>
+  <script src="assets/js/vendor/qrcode-generator.js?v=1.3.1"></script>
+  <script type="module" src="assets/js/app.js?v=1.3.1-2"></script>
 </body>
 </html>

@@ -21,6 +21,8 @@ for (const photo of new Set(seed.map(card => card.photo).filter(Boolean))) {
   assert.match(photo, /^assets\/img\/employees\/[a-z0-9-]+\.(?:jpe?g|png|webp)$/i, `Ruta relativa no válida: ${photo}`);
   const photoUrl = new URL(`../${photo}`, import.meta.url);
   await fs.access(photoUrl);
+  const file = await fs.stat(photoUrl);
+  assert.ok(file.size <= 500_000, `Imagen demasiado pesada para el dashboard: ${photo}`);
   const metadata = await sharp(fileURLToPath(photoUrl)).metadata();
   assert.ok((metadata.width ?? 0) <= 800 && (metadata.height ?? 0) <= 800, `Imagen sin optimizar: ${photo}`);
 }
@@ -125,4 +127,24 @@ assert.equal(migrated.length, 17, "La migración debe sustituir demos intactos y
 assert.ok(migrated.some(card => card.id === "manual-preserved"), "La tarjeta manual debe conservarse.");
 assert.ok(legacyDemoCards.every(demo => !migrated.some(card => card.id === demo.id)), "Los demos intactos deben eliminarse.");
 
-console.log("OK: seed, persistencia, migración, CRUD, búsqueda, filtros, variantes, URLs, QR locales y VCF verificados.");
+const importStorage = await loadStorage();
+const beforeInvalidImport = localStorage.getItem(importStorage.STORAGE_KEY);
+assert.throws(() => importStorage.storage.importCards("{json roto"), /JSON no se puede leer/);
+assert.equal(localStorage.getItem(importStorage.STORAGE_KEY), beforeInvalidImport, "Un JSON inválido no debe modificar los datos actuales.");
+assert.throws(() => importStorage.storage.importCards([{...seed[0], status: "desconocido"}]), /estado debe ser/);
+assert.throws(() => importStorage.storage.importCards([{...seed[0], email: "email-invalido"}]), /email no es válido/);
+assert.throws(() => importStorage.storage.importCards([seed[0], {...seed[1], id: seed[0].id}]), /IDs de tarjeta duplicados/);
+const importedVariants = importStorage.storage.importCards(seed);
+assert.equal(importedVariants.filter(card => card.email === "javier.pedraza@lognext.com").length, 2, "La importación debe permitir el mismo email en tarjetas con cargos distintos.");
+
+localStorage.setItem(importStorage.STORAGE_KEY, "{contenido-corrupto");
+const originalWarn = console.warn;
+console.warn = () => {};
+const corruptedStorage = await loadStorage();
+assert.deepEqual(corruptedStorage.storage.getCards(), [], "Los datos corruptos deben activar un fallback seguro sin romper la aplicación.");
+assert.ok(corruptedStorage.storage.consumeReadError(), "El error de lectura debe poder comunicarse una sola vez a la interfaz.");
+assert.equal(corruptedStorage.storage.consumeReadError(), null);
+console.warn = originalWarn;
+corruptedStorage.storage.restoreInitialData();
+
+console.log("OK: seed, imágenes, persistencia, migración, CRUD, búsqueda, filtros, variantes, importación segura, fallback, URLs, QR locales y VCF verificados.");

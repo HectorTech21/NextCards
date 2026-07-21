@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
-import {ACTION_TYPES} from "../assets/js/card-actions.js";
+import {ACTION_TYPES,actionCountClass,actionRowPlan} from "../assets/js/card-actions.js";
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 const [component, styles, preview, publicCard, cardHtml, indexHtml, positiveSymbol] = await Promise.all([
@@ -14,6 +14,19 @@ const [component, styles, preview, publicCard, cardHtml, indexHtml, positiveSymb
 ]);
 
 assert.deepEqual(ACTION_TYPES, ["contact", "linkedin", "website", "email", "phone", "share", "copy"]);
+for(let count=0;count<=8;count+=1)assert.equal(actionCountClass(count),`actions-count-${count}`);
+assert.equal(actionCountClass(9),"actions-count-many");
+assert.deepEqual(actionRowPlan(1),[1]);
+assert.deepEqual(actionRowPlan(2),[2]);
+assert.deepEqual(actionRowPlan(3),[3]);
+assert.deepEqual(actionRowPlan(4),[4]);
+assert.deepEqual(actionRowPlan(5),[3,2]);
+assert.deepEqual(actionRowPlan(6),[3,3]);
+assert.deepEqual(actionRowPlan(7),[4,3]);
+assert.deepEqual(actionRowPlan(8),[4,4]);
+assert.deepEqual(actionRowPlan(9),[3,3,3]);
+assert.deepEqual(actionRowPlan(10),[4,3,3]);
+assert.deepEqual(actionRowPlan(13),[4,3,3,3]);
 assert.match(component, /createElement\(isLink \? "a" : "button"\)/, "Las acciones deben usar elementos semánticos.");
 assert.match(component, /noopener noreferrer/, "Los enlaces externos deben estar protegidos.");
 assert.match(component, /aria-label/, "Las acciones deben tener nombre accesible.");
@@ -27,9 +40,14 @@ assert.match(styles, /card-action--copy\.is-confirmed/, "Copiar debe tener confi
 assert.match(styles, /prefers-reduced-motion:reduce/, "Debe existir soporte de movimiento reducido.");
 assert.match(styles, /@media\(hover:none\)/, "Debe existir feedback táctil sin hover.");
 assert.match(styles, /min-height:82px/, "La superficie completa debe superar el mínimo táctil de 44 px.");
+assert.match(styles, /display:flex/, "La distribución debe utilizar Flexbox.");
+assert.match(styles, /flex-wrap:wrap/, "Las acciones deben poder saltar de fila.");
+assert.match(styles, /justify-content:center/, "Cada fila debe quedar centrada.");
+assert.match(styles, /action-row-columns-3/, "Las filas de tres acciones deben tener tres columnas.");
+assert.match(styles, /action-row-columns-4/, "Las filas de cuatro acciones deben tener cuatro columnas.");
 
-assert.match(preview, /renderActionGrid\(contact/, "La preview debe usar el componente común para contacto.");
-assert.match(preview, /renderActionGrid\(socials/, "La preview debe usar el componente común para redes.");
+assert.match(preview, /renderActionGrid\(actions,orderedActions/, "La tarjeta debe reunir todas las acciones en un único contenedor.");
+assert.doesNotMatch(preview, /renderActionGrid\(contact/, "Contacto y redes no deben crear filas independientes.");
 assert.match(preview, /interactive=false/, "La preview debe ser segura por defecto.");
 assert.match(publicCard, /renderCardPreview\(publicCard,card,null,null,\{interactive:true\}\)/, "La tarjeta pública debe habilitar enlaces reales.");
 assert.match(publicCard, /settings\.cards\.actionOrder/, "La página pública debe respetar el orden configurado.");

@@ -3,9 +3,12 @@
   --action-ink:var(--navy);
   --action-border:rgba(0,0,41,.13);
   --action-focus:var(--blue);
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:16px 10px;
+  --action-column-gap:10px;
+  --action-row-gap:16px;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:var(--action-row-gap) var(--action-column-gap);
   min-width:0;
   align-items:start;
 }
@@ -21,7 +24,8 @@
   --action-local-surface:var(--action-surface);
   --action-local-ink:var(--action-ink);
   appearance:none;
-  width:100%;
+  width:auto;
+  flex:0 0 100%;
   min-width:0;
   min-height:82px;
   margin:0;
@@ -43,6 +47,9 @@
   -webkit-tap-highlight-color:transparent;
   transition:transform .18s ease,filter .18s ease;
 }
+.card-action-grid>.action-row-columns-2{flex-basis:calc((100% - var(--action-column-gap))/2)}
+.card-action-grid>.action-row-columns-3{flex-basis:calc((100% - 2 * var(--action-column-gap))/3)}
+.card-action-grid>.action-row-columns-4{flex-basis:calc((100% - 3 * var(--action-column-gap))/4)}
 .card-action__shell{
   position:relative;
   isolation:isolate;
@@ -166,25 +173,20 @@
 .card-action--copy.is-confirmed .card-action__shell::before{transform:translate(-1px,-1px);opacity:.9}
 .card-action--copy.is-confirmed .card-action__shell::after{transform:translate(1px,1px);opacity:.9}
 
-.digital-card .card-action-grid{--action-size:50px;--action-icon-size:22px;--action-label-size:.64rem;width:100%;gap:10px 8px}
-.digital-card .dc-contact,.digital-card .dc-socials{grid-template-columns:repeat(2,minmax(0,1fr))}
-.digital-card .dc-contact{margin:auto 0 14px}
-.digital-card .dc-socials{margin:0}
-.digital-card.order-identity-social-contact .dc-socials{margin:auto 0 14px}
-.digital-card.order-identity-social-contact .dc-contact{margin:0}
-.digital-card.order-contact-identity-social .dc-contact{margin:0 0 16px}
-.digital-card.order-contact-identity-social .dc-socials{margin-top:auto}
+.digital-card .card-action-grid{--action-size:50px;--action-icon-size:22px;--action-label-size:.64rem;--action-column-gap:8px;--action-row-gap:10px;width:100%}
+.digital-card .dc-actions{margin:auto 0 0}
+.digital-card.order-contact-identity-social .dc-actions{margin:0 0 16px}
 .digital-card.buttons-outline .card-action:not(.card-action--linkedin):not(.card-action--website) .card-action__shell{background:transparent;border-color:var(--template-accent);color:var(--template-text)}
 .digital-card.buttons-minimal .card-action__shell{border-radius:13px;box-shadow:none}
 .digital-card.buttons-solid .card-action__shell{border-color:color-mix(in srgb,var(--template-accent) 54%,transparent);box-shadow:0 8px 20px color-mix(in srgb,var(--template-accent) 18%,transparent)}
 .template-meaningful-tech .card-action,.template-executive-lines .card-action,.template-blue-grid .card-action,.template-minimal-corporate .card-action,.template-premium-dark .card-action{align-items:flex-start;text-align:left}
 
-.template-tile-preview .card-action-grid{--action-size:24px;--action-icon-size:11px;--action-label-size:.39rem;gap:4px 5px}
+.template-tile-preview .card-action-grid{--action-size:24px;--action-icon-size:11px;--action-label-size:.39rem;--action-column-gap:5px;--action-row-gap:4px}
 .template-tile-preview .card-action{min-height:35px;gap:3px;padding:1px}
-.template-tile-preview .dc-contact{margin:auto 0 4px}.template-tile-preview .dc-socials{margin:0}
-.template-preview-stage.device-desktop .card-action-grid{--action-size:32px;--action-icon-size:14px;--action-label-size:.49rem;gap:5px 7px}
+.template-tile-preview .dc-actions{margin:auto 0 0}
+.template-preview-stage.device-desktop .card-action-grid{--action-size:32px;--action-icon-size:14px;--action-label-size:.49rem;--action-column-gap:7px;--action-row-gap:5px}
 .template-preview-stage.device-desktop .card-action{min-height:46px;gap:4px}
-.settings-preview-phone .card-action-grid{--action-size:34px;--action-icon-size:15px;--action-label-size:.46rem;gap:5px}
+.settings-preview-phone .card-action-grid{--action-size:34px;--action-icon-size:15px;--action-label-size:.46rem;--action-column-gap:5px;--action-row-gap:5px}
 .settings-preview-phone .card-action{min-height:48px;gap:4px}
 
 @media(hover:hover){
@@ -195,7 +197,6 @@
   .card-action--copy:hover .card-action__shell::after{transform:translate(2px,2px);opacity:.8}
 }
 @media(hover:none){.card-action:active .card-action__shell{filter:brightness(1.08)}}
-@media(max-width:340px){.public-primary-actions.card-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){
   .card-action,.card-action__shell,.card-action__shell::before,.card-action__shell::after,.card-action__motion::before,.card-action__motion::after,.card-action__motion i{animation:none!important;transition-duration:.01ms!important}
   .card-action--contact .card-action__motion i,.card-action--share .card-action__motion i{opacity:.34}

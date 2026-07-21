@@ -1,12 +1,14 @@
-import {storage} from "./storage.js";
-import {cardService} from "./cards.js";
-import {setupEditor,openEditor,deleteFromDashboard} from "./editor.js";
+import {storage} from "./storage.js?v=1.2.0";
+import {cardService} from "./cards.js?v=1.2.0";
+import {setupEditor,openEditor,deleteFromDashboard} from "./editor.js?v=1.2.0";
 import {getSourcedPublicCardUrl} from "./card-export.js";
-import {setupTemplatesUI,renderTemplatesSection} from "./templates-ui.js";
+import {copyText} from "./card-sharing.js?v=1.3.1";
+import {openQuickView,refreshQuickView,setupQuickView} from "./quick-view.js?v=1.3.1";
+import {setupTemplatesUI,renderTemplatesSection} from "./templates-ui.js?v=1.2.0";
 import {templateService} from "./templates-store.js";
-import {setupAnalyticsUI,renderAnalyticsSection} from "./analytics-ui.js";
-import {applySettingsToDocument,formatPersonName,getDefaultSettings,settingsService} from "./settings-store.js";
-import {isSettingsDirty,renderSettingsSection,requestSettingsLeave,setupSettingsUI} from "./settings-ui.js";
+import {setupAnalyticsUI,renderAnalyticsSection} from "./analytics-ui.js?v=1.2.0";
+import {applySettingsToDocument,formatPersonName,getDefaultSettings,settingsService} from "./settings-store.js?v=1.2.0";
+import {isSettingsDirty,renderSettingsSection,requestSettingsLeave,setupSettingsUI} from "./settings-ui.js?v=1.2.0";
 
 const iconPaths={
   cards:"M4 4h16v16H4z M8 8h8 M8 12h6",people:"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75",
@@ -17,6 +19,14 @@ const iconPaths={
   arrowLeft:"M19 12H5 M12 19l-7-7 7-7",save:"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z M17 21v-8H7v8 M7 3v5h8",image:"M3 3h18v18H3z M8.5 8.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z M21 15l-5-5L5 21",user:"M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",close:"M18 6 6 18 M6 6l12 12",
   eye:"M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12 M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6",qr:"M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h3v3h-3z M19 14h2v7h-4v-2h-3 M19 19h2",phone:"M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.68 2.8a2 2 0 0 1-.45 2.11L8.07 9.1a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.32 1.84.55 2.8.68A2 2 0 0 1 22 16.92z",share:"M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6 M6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6 M18 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6 M8.59 13.51l6.83 3.98 M15.41 6.51l-6.82 3.98",filter:"M22 3H2l8 9.46V19l4 2v-8.54z",lock:"M5 11h14v10H5z M8 11V7a4 4 0 0 1 8 0v4"
 };
+Object.assign(iconPaths,{
+  mail:"M4 4h16v16H4z M4 6l8 7 8-7",
+  map:"M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6",
+  linkedin:"M6 9v12 M6 5v.01 M10 21V9h4v2a4 4 0 0 1 7 3v7 M10 14a5 5 0 0 1 5-5",
+  globe:"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20 M2 12h20 M12 2a15 15 0 0 1 0 20 M12 2a15 15 0 0 0 0 20",
+  calendar:"M3 5h18v16H3z M16 3v4 M8 3v4 M3 10h18",
+  link:"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+});
 const aliases={"arrow-left":"arrowLeft"};
 function makeIcon(name){
   const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");svg.setAttribute("viewBox","0 0 24 24");svg.setAttribute("fill","none");svg.setAttribute("stroke","currentColor");svg.setAttribute("stroke-width","2");svg.setAttribute("stroke-linecap","round");svg.setAttribute("stroke-linejoin","round");svg.setAttribute("aria-hidden","true");
@@ -40,7 +50,7 @@ function applyAppSettings(settings=readSettings()){
 }
 
 export function showToast(message,type="success"){
-  const toast=node("div",`toast ${type}`);toast.append(makeIcon(type==="error"?"bell":"check"),document.createTextNode(message));document.querySelector("#toast-region").append(toast);
+  const toast=node("div",`toast ${type}`);toast.setAttribute("role",type==="error"?"alert":"status");toast.append(makeIcon(type==="error"?"bell":"check"),document.createTextNode(message));document.querySelector("#toast-region").append(toast);
   setTimeout(()=>toast.remove(),3200);
 }
 
@@ -48,16 +58,16 @@ function createButton(label,className,action,id,icon){
   const button=node("button",className);button.type="button";button.dataset.action=action;if(id)button.dataset.id=id;if(icon)button.append(makeIcon(icon));if(label)button.append(document.createTextNode(label));return button;
 }
 
-function createCard(card){
-  const settings=readSettings();
+function createCard(card,settings){
   const displayName=formatPersonName(card,settings);
   const article=node("article","employee-card"),cover=node("div","employee-cover");
-  const logo=node("img","employee-logo");logo.src="assets/img/logos/lognext-negative.svg";logo.alt="";
+  const quickTrigger=createButton("","quick-view-trigger","quick-view",card.id);quickTrigger.setAttribute("aria-label",`Abrir vista rápida de ${displayName}`);quickTrigger.title="Vista rápida";
+  const logo=node("img","employee-logo");logo.src="assets/img/logos/lognext-negative.svg";logo.alt="";logo.decoding="async";logo.addEventListener("error",()=>logo.remove(),{once:true});
   const menuButton=createButton("","card-menu-button","toggle-menu",card.id,"more");menuButton.setAttribute("aria-label",`Más acciones para ${displayName}`);menuButton.setAttribute("aria-expanded","false");
   const menu=node("div","card-menu");menu.hidden=true;
-  [["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]].forEach(([label,action])=>{const b=createButton(label,action==="delete"?"danger":"",action,card.id);menu.append(b)});
-  cover.append(logo,menuButton,menu);
-  if(card.photo&&card.visibleFields?.photo!==false){const img=node("img","employee-photo");img.src=card.photo;img.alt=`Foto de ${displayName}`;cover.append(img)}else cover.append(node("div","employee-initials",initials(card)));
+  [["Vista rápida","quick-view"],["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]].forEach(([label,action])=>{const b=createButton(label,action==="delete"?"danger":"",action,card.id);menu.append(b)});
+  cover.append(quickTrigger,logo,menuButton,menu);
+  if(card.photo&&card.visibleFields?.photo!==false){const img=node("img","employee-photo");img.src=card.photo;img.alt=`Foto de ${displayName}`;img.loading="lazy";img.decoding="async";img.style.objectPosition=card.photoPosition||"center";img.addEventListener("error",()=>img.replaceWith(node("div","employee-initials",initials(card))),{once:true});cover.append(img)}else cover.append(node("div","employee-initials",initials(card)));
   const info=node("div","employee-info"),top=node("div","employee-info-top");
   top.append(node("span",`status status-${card.status}`,statusLabels[card.status]||card.status));
   const template=templateService.resolveTemplate(card.template,{warn:false});
@@ -85,24 +95,34 @@ function refreshDepartments(){
 }
 
 function renderDashboard(){
+  const settings=readSettings();
   const cards=cardService.query({search:search.value,department:department.value,status:statusFilter.value});
   const all=cardService.all();document.querySelector("#active-count").textContent=all.filter(c=>c.status==="active").length;document.querySelector("#draft-count").textContent=all.filter(c=>c.status==="draft").length;document.querySelector("#total-count").textContent=all.length;
   document.querySelector("#results-label").textContent=`${cards.length} de ${all.length} tarjetas`;
   grid.replaceChildren();if(!search.value&&!department.value&&!statusFilter.value)grid.append(createNewTile());
-  cards.forEach(card=>grid.append(createCard(card)));empty.hidden=Boolean(cards.length||grid.children.length);grid.hidden=!empty.hidden;renderIcons(grid);
+  cards.forEach(card=>grid.append(createCard(card,settings)));empty.hidden=Boolean(cards.length||grid.children.length);grid.hidden=!empty.hidden;renderIcons(grid);
 }
 
 function download(content,filename,type){
   const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement("a");a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 async function copyCardLink(id){
-  const card=cardService.get(id);const url=getSourcedPublicCardUrl(card,"copied_link");
-  if(readSettings().privacy.confirmBeforeCopy&&!window.confirm(`¿Copiar el enlace de ${formatPersonName(card,readSettings())}?`))return;
-  await navigator.clipboard.writeText(url);showToast("Enlace copiado.");
+  const card=cardService.get(id);const settings=readSettings();const url=getSourcedPublicCardUrl(card,"copied_link");
+  if(settings.privacy.confirmBeforeCopy&&!window.confirm(`¿Copiar el enlace de ${formatPersonName(card,settings)}?`))return;
+  await copyText(url);showToast("Enlace copiado.");
+}
+
+function closeCardMenus(){
+  document.querySelectorAll(".card-menu").forEach(menu=>{menu.hidden=true;menu.parentElement?.querySelector(".card-menu-button")?.setAttribute("aria-expanded","false")});
 }
 
 function handleAction(action,id,target){
   if(action==="new-card")openEditor();
+  if(action==="quick-view"){
+    const opener=target.closest(".card-menu")?.parentElement?.querySelector(".card-menu-button")||target;
+    closeCardMenus();
+    openQuickView(id,opener);
+  }
   if(action==="edit")openEditor(id);
   if(action==="template"){openEditor(id,{focusTemplate:true});showToast("Selecciona una plantilla y guarda los cambios.")}
   if(action==="view"){const card=cardService.get(id);window.open(getSourcedPublicCardUrl(card,"admin_preview"),"_blank","noopener,noreferrer")}
@@ -112,22 +132,27 @@ function handleAction(action,id,target){
   if(action==="delete")deleteFromDashboard(id);
   if(action==="toggle-menu"){
     const menu=target.closest(".employee-cover").querySelector(".card-menu");const open=menu.hidden;
-    document.querySelectorAll(".card-menu").forEach(item=>item.hidden=true);menu.hidden=!open;target.setAttribute("aria-expanded",open);
+    closeCardMenus();menu.hidden=!open;target.setAttribute("aria-expanded",String(open));if(open)menu.querySelector("button")?.focus();
   }
+  if(action==="notifications")showToast("No hay notificaciones nuevas.");
+  if(action==="admin-info")showToast("Sesión local · Héctor Plaza · Administrador.");
   if(action==="export"){download(storage.exportCards(),`nextcards-${new Date().toISOString().slice(0,10)}.json`,"application/json");showToast("Datos exportados.")}
   if(action==="import")document.querySelector("#import-file").click();
   if(action==="restore"&&confirm("¿Restaurar las tarjetas iniciales? Se reemplazarán los cambios locales actuales.")){storage.restoreInitialData();refreshDepartments();renderDashboard();showToast("Datos iniciales restaurados.")}
   if(["export","import","restore"].includes(action)){document.querySelector("#data-menu").hidden=true}
 }
 
-setupEditor({onChange:()=>{refreshDepartments();renderDashboard()},showToast});
+setupQuickView({showToast,renderIconElements:renderIcons,openCardEditor:openEditor});
+setupEditor({onChange:()=>{refreshDepartments();renderDashboard();refreshQuickView()},showToast});
 setupTemplatesUI({showToast,onCardsUpdate:()=>{refreshDepartments();renderDashboard()},renderIconElements:renderIcons});
 setupAnalyticsUI({showToast,renderIconElements:renderIcons,openCardEditor:openEditor});
 setupSettingsUI({showToast,renderIconElements:renderIcons,onSettingsApplied:()=>{applyAppSettings();refreshDepartments();renderDashboard();renderTemplatesSection();renderAnalyticsSection()},onDataChanged:()=>{refreshDepartments();renderDashboard();renderTemplatesSection();renderAnalyticsSection()}});
 applyAppSettings();renderIcons();refreshDepartments();renderDashboard();
+if(storage.consumeReadError?.())showToast("No se han podido leer los datos locales. Importa una copia o restaura los datos iniciales.","error");
 document.addEventListener("click",event=>{
   const trigger=event.target.closest("[data-action]");if(trigger)handleAction(trigger.dataset.action,trigger.dataset.id,trigger);
-  if(!event.target.closest(".card-menu-button")&&!event.target.closest(".card-menu"))document.querySelectorAll(".card-menu").forEach(menu=>menu.hidden=true);
+  if(!event.target.closest(".card-menu-button")&&!event.target.closest(".card-menu"))closeCardMenus();
+  if(!event.target.closest("#data-menu-button")&&!event.target.closest("#data-menu")){document.querySelector("#data-menu").hidden=true;document.querySelector("#data-menu-button").setAttribute("aria-expanded","false")}
 });
 [search,department,statusFilter].forEach(control=>control.addEventListener(control===search?"input":"change",renderDashboard));
 document.querySelector("#menu-toggle").addEventListener("click",event=>{const open=sidebar.classList.toggle("open");event.currentTarget.setAttribute("aria-expanded",open)});
@@ -136,7 +161,7 @@ function activateSection(section,item=document.querySelector(`.nav-item[data-sec
   document.querySelector("#templates-view").hidden=section!=="templates";
   document.querySelector("#stats-view").hidden=section!=="stats";
   document.querySelector("#settings-view").hidden=section!=="settings";
-  document.querySelectorAll(".nav-item").forEach(nav=>nav.classList.toggle("active",nav===item));
+  document.querySelectorAll(".nav-item").forEach(nav=>{const active=nav===item;nav.classList.toggle("active",active);if(active)nav.setAttribute("aria-current","page");else nav.removeAttribute("aria-current")});
   document.body.dataset.section=section;
   currentSection=section;
   if(section==="templates")renderTemplatesSection();
@@ -145,8 +170,8 @@ function activateSection(section,item=document.querySelector(`.nav-item[data-sec
   sidebar.classList.remove("open");
 }
 document.querySelectorAll(".nav-item").forEach(item=>item.addEventListener("click",()=>{
-  const section=item.dataset.section;
-  if(!["cards","templates","stats","settings"].includes(section)){showToast("Esta sección estará disponible en una siguiente fase.","error");sidebar.classList.remove("open");return}
+  let section=item.dataset.section;
+  if(section==="employees"){section="cards";item=document.querySelector('.nav-item[data-section="cards"]');showToast("El directorio de empleados está integrado en Tarjetas.")}
   const navigate=()=>activateSection(section,item);
   if(currentSection==="settings"&&section!=="settings"&&isSettingsDirty())requestSettingsLeave(navigate);else navigate();
 }));
@@ -155,4 +180,10 @@ document.querySelector("#import-file").addEventListener("change",async event=>{
   const file=event.target.files[0];if(!file)return;
   try{storage.importCards(await file.text());refreshDepartments();renderDashboard();showToast("Datos importados correctamente.")}catch(error){showToast(error.message,"error")}event.target.value="";
 });
-document.addEventListener("keydown",event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==="k"){event.preventDefault();const focusSearch=()=>{if(currentSection!=="cards")activateSection("cards");search.focus()};if(currentSection==="settings"&&isSettingsDirty())requestSettingsLeave(focusSearch);else focusSearch()}});
+document.addEventListener("keydown",event=>{
+  if(event.key==="Escape"){
+    if(sidebar.classList.contains("open")){sidebar.classList.remove("open");document.querySelector("#menu-toggle").setAttribute("aria-expanded","false");document.querySelector("#menu-toggle").focus()}
+    closeCardMenus();document.querySelector("#data-menu").hidden=true;document.querySelector("#data-menu-button").setAttribute("aria-expanded","false");
+  }
+  if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==="k"){event.preventDefault();const focusSearch=()=>{if(currentSection!=="cards")activateSection("cards");search.focus()};if(currentSection==="settings"&&isSettingsDirty())requestSettingsLeave(focusSearch);else focusSearch()}
+});

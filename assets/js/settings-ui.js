@@ -1,4 +1,4 @@
-import {renderCardPreview} from "./preview.js";
+import {renderCardPreview} from "./preview.js?v=1.2.0";
 import {templateService} from "./templates-store.js";
 import {
   CARD_ACTIONS,
@@ -9,7 +9,7 @@ import {
   getDefaultSettings,
   settingsService,
   validateSettings,
-} from "./settings-store.js";
+} from "./settings-store.js?v=1.2.0";
 import {
   buildCardsCsv,
   buildTechnicalSummary,
@@ -20,7 +20,7 @@ import {
   restoreInitialNextCardsData,
   serializeBackup,
   validateBackup,
-} from "./settings-data.js";
+} from "./settings-data.js?v=1.2.0";
 
 const SAMPLE_CARD = Object.freeze({
   id: "settings-preview-sample",

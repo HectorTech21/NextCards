@@ -1,9 +1,10 @@
 import {templateService,readableTextColor} from "./templates-store.js";
-import {formatPersonName,settingsService} from "./settings-store.js";
-import {renderActionGrid} from "./card-actions.js";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.2.0";
+import {renderActionGrid} from "./card-actions.js?v=1.2.0";
 
 function el(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node}
 function initials(card){return `${card.firstName?.[0]||""}${card.lastName?.[0]||""}`.toUpperCase()}
+function initialsNode(card){return el("div","dc-initials",initials(card)||"LN")}
 
 function logoSource(theme){
   if(theme.logoVariant==="blue")return "assets/img/logos/lognext-positive.svg";
@@ -42,35 +43,33 @@ export function renderCardPreview(container,card,templateOverride=null,settingsO
   const theme=template.theme;
   const pattern=el("div","card-pattern");
   const inner=el("div","dc-inner"),header=el("div","dc-header");
-  const logo=el("img","dc-logo");logo.src=logoSource(theme);logo.alt="Lognext";
+  const logo=el("img","dc-logo");logo.src=logoSource(theme);logo.alt="Lognext";logo.decoding="async";logo.addEventListener("error",()=>logo.remove(),{once:true});
   inner.append(header,logo);
   const identity=el("div","dc-identity");
   if(card.visibleFields?.photo!==false){
-    if(card.photo){const photo=el("img","dc-photo");photo.src=card.photo;photo.alt=`Foto de ${card.firstName||"empleado"}`;identity.append(photo)}
-    else identity.append(el("div","dc-initials",initials(card)||"LN"));
+    if(card.photo){
+      const photo=el("img","dc-photo");photo.src=card.photo;photo.alt=`Foto de ${card.firstName||"empleado"}`;photo.decoding="async";photo.style.objectPosition=card.photoPosition||"center";
+      if(interactive)photo.fetchPriority="high";else photo.loading="lazy";
+      photo.addEventListener("error",()=>photo.replaceWith(initialsNode(card)),{once:true});identity.append(photo);
+    }else identity.append(initialsNode(card));
   }
   identity.append(el("h1","",formatPersonName({firstName:card.firstName||"Nombre",lastName:card.lastName||"Apellidos"},settings)));
   if(card.visibleFields?.jobTitle!==false)identity.append(el("p","dc-role",card.jobTitle||"Puesto"));
   const metadata=[theme.showDepartment!==false&&card.visibleFields?.department!==false&&card.department,theme.showCity!==false&&card.visibleFields?.city!==false&&card.city].filter(Boolean);
   if(metadata.length)identity.append(el("p","dc-meta",metadata.join(" · ")));
   if(card.bio&&card.visibleFields?.bio!==false) identity.append(el("p","dc-bio",card.bio));
-  const contact=el("div","dc-contact");
   const contactActions=[];
   if(card.phone&&card.visibleFields?.phone!==false)contactActions.push({type:"phone",label:"Teléfono",ariaLabel:`Llamar a ${card.phone}`,href:`tel:${card.phone.replace(/[^\d+]/g,"")}`,eventType:"phone_click"});
   if(card.email&&card.visibleFields?.email!==false)contactActions.push({type:"email",label:"Email",ariaLabel:`Enviar un email a ${card.email}`,href:`mailto:${card.email}`,eventType:"email_click"});
-  renderActionGrid(contact,contactActions,{tone:container.dataset.cardTone,interactive});
-  const socials=el("div","dc-socials");
   const socialActions=[];
   if(card.linkedin&&card.visibleFields?.linkedin!==false)socialActions.push({type:"linkedin",label:"LinkedIn",ariaLabel:`Abrir el perfil de LinkedIn de ${formatPersonName(card,settings)}`,href:card.linkedin,target:"_blank",eventType:"linkedin_click"});
   if(card.website&&card.visibleFields?.website!==false)socialActions.push({type:"website",label:"Website",ariaLabel:"Abrir el sitio web de Lognext",href:card.website,target:"_blank",eventType:"website_click"});
-  renderActionGrid(socials,socialActions,{tone:container.dataset.cardTone,interactive});
+  const actions=el("div","dc-actions");
+  const orderedActions=theme.contentOrder==="identity-social-contact"?[...socialActions,...contactActions]:[...contactActions,...socialActions];
+  renderActionGrid(actions,orderedActions,{tone:container.dataset.cardTone,interactive});
   container.dataset.previewMode=interactive?"interactive":"safe";
-  const blocks={identity,contact,social:socials};
-  const order={
-    "identity-contact-social":["identity","contact","social"],
-    "identity-social-contact":["identity","social","contact"],
-    "contact-identity-social":["contact","identity","social"],
-  }[theme.contentOrder]||["identity","contact","social"];
+  const blocks={identity,actions};
+  const order=theme.contentOrder==="contact-identity-social"?["actions","identity"]:["identity","actions"];
   order.forEach(key=>{if(key==="identity"||blocks[key].children.length)inner.append(blocks[key])});
   if(theme.showTagline&&settings.publicCard.tagline)inner.append(el("p","dc-tagline",taglineFor(settings)));
   container.append(pattern,inner);

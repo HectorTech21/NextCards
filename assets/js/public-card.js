@@ -1,17 +1,18 @@
-import {cardService} from "./cards.js";
-import {renderCardPreview} from "./preview.js";
+import {cardService} from "./cards.js?v=1.2.0";
+import {renderCardPreview} from "./preview.js?v=1.2.0";
 import {buildVcard,getPublicCardUrl,getSourcedPublicCardUrl,getVcardFilename} from "./card-export.js";
-import {buildQrSvg} from "./qr-code.js";
+import {copyText,shareCard} from "./card-sharing.js?v=1.3.1";
+import {renderQr} from "./qr-code.js?v=1.3.1";
 import {getAccessContext,safeTrackEvent,trackPublicCardView} from "./analytics.js";
-import {applySettingsToDocument,formatPersonName,settingsService} from "./settings-store.js";
-import {createActionIcon,renderActionGrid,setActionFeedback} from "./card-actions.js";
+import {applySettingsToDocument,formatPersonName,settingsService} from "./settings-store.js?v=1.2.0";
+import {createActionIcon,renderActionGrid,setActionFeedback} from "./card-actions.js?v=1.2.0";
 
 document.querySelectorAll("[data-icon]").forEach(slot=>slot.append(createActionIcon(slot.dataset.icon)));
 const settings=settingsService.getSettings();
 applySettingsToDocument(settings);
 
 function toast(message,type="success"){
-  const item=document.createElement("div");item.className=`toast ${type}`;item.append(createActionIcon(type==="success"?"check":"link"),document.createTextNode(message));document.querySelector("#toast-region").append(item);setTimeout(()=>item.remove(),3000);
+  const item=document.createElement("div");item.className=`toast ${type}`;item.setAttribute("role",type==="error"?"alert":"status");item.append(createActionIcon(type==="success"?"check":"link"),document.createTextNode(message));document.querySelector("#toast-region").append(item);setTimeout(()=>item.remove(),3000);
 }
 const parameter=new URLSearchParams(location.search).get("id");
 const card=cardService.get(parameter);
@@ -45,12 +46,26 @@ if(!card||card.status==="disabled"){
 
 function configureMetadata(card,canonical,displayName){
   const description=[card.jobTitle,settings.publicCard.companyName].filter(Boolean).join(" · ");
-  document.querySelector('meta[name="description"]').content=`Tarjeta digital de ${displayName}${description?` · ${description}`:""}.`;
-  document.querySelector('meta[property="og:title"]').content=`${displayName} | ${settings.publicCard.companyName}`;
+  const title=`${displayName} | ${settings.publicCard.companyName}`;
+  const fullDescription=`Tarjeta digital de ${displayName}${description?` · ${description}`:""}.`;
+  const imageUrl=card.photo?new URL(card.photo,location.href).href:"";
+  document.querySelector('meta[name="description"]').content=fullDescription;
+  document.querySelector('meta[property="og:title"]').content=title;
   document.querySelector('meta[property="og:description"]').content=description||settings.publicCard.tagline;
+  document.querySelector('meta[property="og:site_name"]').content=settings.general.appName;
   document.querySelector('meta[property="og:url"]').content=canonical;
-  const image=document.querySelector('meta[property="og:image"]');
-  image.content=card.photo?new URL(card.photo,location.href).href:"";
+  document.querySelector('meta[property="og:image"]').content=imageUrl;
+  document.querySelector('meta[property="og:image:alt"]').content=imageUrl?`Foto de ${displayName}`:"";
+  document.querySelector('meta[property="profile:first_name"]').content=card.firstName||"";
+  document.querySelector('meta[property="profile:last_name"]').content=card.lastName||"";
+  document.querySelector('meta[name="twitter:card"]').content=imageUrl?"summary_large_image":"summary";
+  document.querySelector('meta[name="twitter:title"]').content=title;
+  document.querySelector('meta[name="twitter:description"]').content=description||settings.publicCard.tagline;
+  document.querySelector('meta[name="twitter:image"]').content=imageUrl;
+  const localHosts=new Set(["localhost","127.0.0.1","::1"]),isLocal=localHosts.has(location.hostname);
+  const canonicalLink=document.querySelector('link[rel="canonical"]'),robots=document.querySelector('meta[name="robots"]');
+  if(isLocal){canonicalLink.removeAttribute("href");robots.content="noindex,nofollow"}
+  else{canonicalLink.href=canonical;robots.content="index,follow,max-image-preview:large"}
 }
 
 function configurePublicActions(card,{analyticsContext,sharedUrl,copiedUrl}){
@@ -77,14 +92,13 @@ function configurePublicFooter(){
 
 async function copy(value,{analyticsContext=null}={}){
   if(settings.privacy.confirmBeforeCopy&&!confirm("¿Copiar el enlace público de esta tarjeta?"))return false;
-  try{await navigator.clipboard.writeText(value);if(analyticsContext)safeTrackEvent("copy_link",analyticsContext);toast("Enlace copiado.");return true}catch{toast("Selecciona el enlace para copiarlo manualmente.","error");return false}
+  try{await copyText(value);if(analyticsContext)safeTrackEvent("copy_link",analyticsContext);toast("Enlace copiado.");return true}catch{toast("Selecciona el enlace para copiarlo manualmente.","error");return false}
 }
 
 async function share(card,url,analyticsContext){
   safeTrackEvent("share_click",analyticsContext);
-  const name=formatPersonName(card,settings);const data={title:`Tarjeta de ${name}`,text:`Contacta con ${name} de ${settings.publicCard.companyName}.`,url};
-  if(navigator.share){try{await navigator.share(data)}catch(error){if(error.name!=="AbortError")await copy(url)}}
-  else await copy(url);
+  const result=await shareCard(card,url,settings,{onFallbackCopy:value=>copy(value,{analyticsContext})});
+  return result.status;
 }
 
 function downloadVcard(card,analyticsContext){
@@ -96,11 +110,8 @@ function downloadVcard(card,analyticsContext){
 function createQr(url){
   const holder=document.querySelector("#qr-code");
   try{
-    const parsed=new DOMParser().parseFromString(buildQrSvg(url,globalThis.qrcode,settings.cards.qr),"image/svg+xml");
-    const svg=parsed.documentElement;
-    if(svg.localName!=="svg")throw new Error("SVG de QR no válido");
-    svg.setAttribute("role","img");svg.setAttribute("aria-label",`Código QR para abrir la tarjeta de ${formatPersonName(card,settings)}`);
-    holder.dataset.size=settings.cards.qr.size;holder.replaceChildren(document.importNode(svg,true));
+    renderQr(holder,url,{factory:globalThis.qrcode,options:settings.cards.qr,ariaLabel:`Código QR para abrir la tarjeta de ${formatPersonName(card,settings)}`});
+    holder.dataset.size=settings.cards.qr.size;
   }catch{
     const fallback=document.createElement("span");fallback.textContent="QR no disponible";fallback.style.fontSize=".65rem";fallback.style.textAlign="center";holder.replaceChildren(fallback);
   }

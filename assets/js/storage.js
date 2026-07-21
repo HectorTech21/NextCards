@@ -33,6 +33,7 @@ async function loadInitialCards() {
 }
 
 const initialCards = await loadInitialCards();
+let lastReadError=null;
 
 function migrateFirstSeed(existingCards) {
   const preserved = existingCards.filter(card => !isUntouchedLegacyDemo(card));
@@ -72,26 +73,46 @@ function initializeCards() {
 export const storage = {
   getCards() {
     try {
-      return clone(initializeCards());
+      const cards=clone(initializeCards());lastReadError=null;return cards;
     } catch (error) {
       console.warn("No se pudieron leer las tarjetas.", error);
+      lastReadError=error;
       return [];
     }
   },
   saveCards(cards) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+    lastReadError=null;
     return cards;
+  },
+  consumeReadError() {
+    const error=lastReadError;lastReadError=null;return error;
   },
   exportCards() {
     return JSON.stringify(this.getCards(), null, 2);
   },
   importCards(json) {
-    const parsed = typeof json === "string" ? JSON.parse(json) : json;
-    if (!Array.isArray(parsed)) throw new Error("El archivo debe contener una lista de tarjetas.");
-    const valid = parsed.filter(card => card && typeof card === "object" && card.id && card.slug && card.firstName && card.email);
-    if (!valid.length) throw new Error("No se encontraron tarjetas válidas.");
-    this.saveCards(valid);
-    return valid;
+    let parsed;
+    try{parsed=typeof json==="string"?JSON.parse(json):json}catch{throw new Error("El archivo JSON no se puede leer. Revisa su formato e inténtalo de nuevo.")}
+    if(!Array.isArray(parsed))throw new Error("El archivo debe contener una lista de tarjetas.");
+    if(!parsed.length)throw new Error("El archivo no contiene ninguna tarjeta.");
+    const required=["id","slug","firstName","lastName","jobTitle","department","email","template"];
+    const slugPattern=/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/;
+    const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const validUrl=value=>{if(!value)return true;try{return ["http:","https:"].includes(new URL(value).protocol)}catch{return false}};
+    parsed.forEach((card,index)=>{
+      const row=`Tarjeta ${index+1}`;
+      if(!card||typeof card!=="object"||Array.isArray(card))throw new Error(`${row}: la estructura no es válida.`);
+      const missing=required.find(key=>!String(card[key]??"").trim());if(missing)throw new Error(`${row}: falta el campo obligatorio ${missing}.`);
+      if(!slugPattern.test(card.slug))throw new Error(`${row}: el slug solo puede contener letras, números y guiones.`);
+      if(!emailPattern.test(card.email))throw new Error(`${row}: el email no es válido.`);
+      if(!["active","draft","disabled"].includes(card.status))throw new Error(`${row}: el estado debe ser active, draft o disabled.`);
+      const invalidUrl=["website","linkedin","customLink"].find(key=>!validUrl(card[key]));if(invalidUrl)throw new Error(`${row}: ${invalidUrl} debe usar una URL http o https válida.`);
+    });
+    const duplicate=(key)=>{const seen=new Set();return parsed.find(card=>{const value=String(card[key]).trim().toLowerCase();if(seen.has(value))return true;seen.add(value);return false})};
+    if(duplicate("id"))throw new Error("El archivo contiene IDs de tarjeta duplicados.");
+    if(duplicate("slug"))throw new Error("El archivo contiene slugs duplicados.");
+    const cards=clone(parsed);this.saveCards(cards);return cards;
   },
   restoreInitialData() {
     const seeded = clone(initialCards);

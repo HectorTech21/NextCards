@@ -236,8 +236,12 @@ assert.equal(multiRole.length, 2);
 const validVariants = await checkDataIntegrity({cards: multiRole, templates: templateService.getTemplates(), checkPhotos: false});
 assert.equal(validVariants.issues.some(issue => issue.code === "DUPLICATE_ID" || issue.code === "DUPLICATE_SLUG"), false, "Compartir email con cargos distintos no es un duplicado.");
 const broken = await checkDataIntegrity({
-  cards: [multiRole[0], {...multiRole[1], id: multiRole[0].id, slug: multiRole[0].slug, website: "no-es-url", template: "missing-template"}],
-  templates: templateService.getTemplates(),
+  cards: [
+    multiRole[0],
+    {...multiRole[1], id: multiRole[0].id, slug: multiRole[0].slug, website: "no-es-url", template: "missing-template", email: "email-invalido", status: "misterio"},
+    {...multiRole[0], id: "invalid-fields", slug: "slug no valido"},
+  ],
+  templates: [...templateService.getTemplates(), {...templateService.getTemplates()[0], status: "misterio"}],
   checkPhotos: false,
 });
 assert.equal(broken.status, "error");
@@ -245,6 +249,11 @@ assert.ok(broken.issues.some(issue => issue.code === "DUPLICATE_ID"));
 assert.ok(broken.issues.some(issue => issue.code === "DUPLICATE_SLUG"));
 assert.ok(broken.issues.some(issue => issue.code === "INVALID_URL"));
 assert.ok(broken.issues.some(issue => issue.code === "MISSING_TEMPLATE"));
+assert.ok(broken.issues.some(issue => issue.code === "INVALID_EMAIL"));
+assert.ok(broken.issues.some(issue => issue.code === "INVALID_SLUG"));
+assert.ok(broken.issues.some(issue => issue.code === "UNKNOWN_STATUS"));
+assert.ok(broken.issues.some(issue => issue.code === "DUPLICATE_TEMPLATE_ID"));
+assert.ok(broken.issues.some(issue => issue.code === "UNKNOWN_TEMPLATE_STATUS"));
 
 const systemInfo = getSystemInformation();
 assert.equal(systemInfo.cards, seed.length);

@@ -15,7 +15,7 @@ h3{font-size:1.05rem}
 .skip-link{position:fixed;z-index:2000;top:10px;left:10px;padding:10px 16px;background:var(--white);border-radius:8px;transform:translateY(-150%);box-shadow:var(--shadow-sm)}
 .skip-link:focus{transform:none}
 :focus-visible{outline:3px solid rgba(55,145,245,.55);outline-offset:3px}
-.button{border:0;border-radius:12px;min-height:44px;padding:0 17px;display:inline-flex;align-items:center;justify-content:center;gap:9px;font-weight:600;cursor:pointer;text-decoration:none;transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
+.button{border:0;border-radius:var(--control-radius);min-height:var(--control-height);padding:0 17px;display:inline-flex;align-items:center;justify-content:center;gap:9px;font-weight:600;cursor:pointer;text-decoration:none;transition:transform var(--transition-fast),box-shadow var(--transition-fast),background var(--transition-fast)}
 .button:hover{transform:translateY(-1px)}
 .button svg,.icon-button svg,.text-button svg,.nav-item svg{width:19px;height:19px}
 .button-primary{background:var(--orange);color:var(--accent-ink);box-shadow:0 8px 18px rgba(250,60,15,.2)}
@@ -24,8 +24,11 @@ h3{font-size:1.05rem}
 .button-danger{background:#fff0ed;color:var(--danger);border:1px solid #ffd0c7}
 .button-large{min-height:50px;padding:0 22px}
 .button-block{width:100%}
-.icon-button{width:42px;height:42px;padding:0;border:1px solid var(--border);border-radius:12px;background:var(--white);display:inline-grid;place-items:center;cursor:pointer}
-.text-button{border:0;background:none;padding:4px 0;display:inline-flex;gap:6px;align-items:center;font-weight:600;cursor:pointer}
+.icon-button{width:var(--control-height);height:var(--control-height);padding:0;border:1px solid var(--border);border-radius:var(--control-radius);background:var(--white);display:inline-grid;place-items:center;cursor:pointer;transition:background var(--transition-fast),border-color var(--transition-fast),transform var(--transition-fast)}
+.text-button{border:0;background:none;min-height:var(--control-height);padding:4px 0;display:inline-flex;gap:6px;align-items:center;font-weight:600;cursor:pointer}
+.button:disabled,.icon-button:disabled,.text-button:disabled,button[aria-disabled="true"]{cursor:not-allowed;opacity:.48;transform:none;box-shadow:none}
+input:disabled,select:disabled,textarea:disabled{cursor:not-allowed;background:#f0f0f4!important;color:#777785;opacity:.8}
+[aria-invalid="true"]{border-color:var(--danger)!important}
 .text-button.danger{color:var(--danger);font-size:.84rem}
 .eyebrow{display:block;color:var(--orange);font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px}
 .avatar{border-radius:50%;display:grid;place-items:center;background:var(--blue);color:white;font-weight:700}
@@ -38,6 +41,10 @@ h3{font-size:1.05rem}
 .toast svg{width:18px;height:18px;flex:0 0 auto}
 .toast.success svg{color:var(--green)}.toast.error svg{color:#ff8971}
 @keyframes toast-in{from{opacity:0;transform:translateY(8px)}}
+@keyframes overlay-in{from{opacity:0}}
+@keyframes panel-in{from{opacity:0;transform:translateY(10px) scale(.992)}}
+.editor-overlay:not([hidden]),.template-modal:not([hidden]),.settings-modal:not([hidden]),.analytics-detail-modal:not([hidden]){animation:overlay-in var(--transition-panel)}
+.editor-overlay:not([hidden]) .editor-dialog,.template-modal:not([hidden]) .template-modal-dialog,.settings-modal:not([hidden]) .settings-modal-dialog,.analytics-detail-modal:not([hidden]) .analytics-detail-dialog{animation:panel-in var(--transition-panel)}
 .digital-card{--accent:var(--orange);--template-bg:var(--navy);--template-accent:var(--accent);--template-text:#fff;--template-muted:#e1e1e8;--template-secondary:#fff;--template-secondary-text:#000029;--template-button-text:#fff;position:relative;overflow:hidden;background:var(--template-bg);color:var(--template-text);min-height:100%;isolation:isolate}
 .digital-card .card-pattern{position:absolute;inset:0;z-index:-1;opacity:.3;pointer-events:none}
 .digital-card.pattern-none .card-pattern{display:none}

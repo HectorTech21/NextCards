@@ -1,6 +1,6 @@
-import {storage} from "./storage.js";
+import {storage} from "./storage.js?v=1.2.0";
 import {templateService} from "./templates-store.js";
-import {settingsService} from "./settings-store.js";
+import {settingsService} from "./settings-store.js?v=1.2.0";
 
 const uid=()=>globalThis.crypto?.randomUUID?.()||`card-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const stamp=()=>new Date().toISOString();
@@ -60,7 +60,7 @@ export function emptyCard(){
   return {
     id:"",slug:"",cardName:"",firstName:"",lastName:"",jobTitle:"",department:"",city:"Madrid",pronouns:"",
     email:"",phone:"",mobile:"",website:settings.publicCard.companyUrl,linkedin:"",location:"Madrid",customLink:"",bio:"",
-    photo:"",template:defaultTemplate.id,accentColor:defaultTemplate.theme.accentColor,status:settings.cards.defaultStatus,language:"es",
+    photo:"",photoPosition:"center",template:defaultTemplate.id,accentColor:defaultTemplate.theme.accentColor,status:settings.cards.defaultStatus,language:"es",
     visibleFields:{...settings.cards.defaultVisibleFields}
   };
 }

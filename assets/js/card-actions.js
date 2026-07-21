@@ -160,18 +160,38 @@ export function createActionButton({
   return element;
 }
 
+export function actionCountClass(count) {
+  const normalized = Math.max(0, Math.floor(Number(count) || 0));
+  return normalized > 8 ? "actions-count-many" : `actions-count-${normalized}`;
+}
+
+export function actionRowPlan(count) {
+  const normalized = Math.max(0, Math.floor(Number(count) || 0));
+  if (!normalized) return [];
+  if (normalized <= 4) return [normalized];
+  const rowCount = normalized <= 8 ? 2 : Math.ceil(normalized / 4);
+  const minimumRowSize = Math.floor(normalized / rowCount);
+  const largerRows = normalized % rowCount;
+  return Array.from({length: rowCount}, (_, index) => minimumRowSize + (index < largerRows ? 1 : 0));
+}
+
 export function renderActionGrid(container, actions = [], {tone = "light", interactive = true} = {}) {
   const fragment = document.createDocumentFragment();
   const rendered = new Map();
-  actions.forEach(action => {
-    if (!action || action.visible === false) return;
-    if (interactive && !action.href && typeof action.onClick !== "function") return;
+  const visibleActions = actions.filter(action => action && action.visible !== false && (!interactive || action.href || typeof action.onClick === "function"));
+  const rowColumns = actionRowPlan(visibleActions.length).flatMap(size => Array(size).fill(size));
+  visibleActions.forEach((action, index) => {
     const element = createActionButton({...action, interactive});
+    element.classList.add(`action-row-columns-${rowColumns[index]}`);
     fragment.append(element);
     rendered.set(action.id || action.type, element);
   });
+  const visibleCount = visibleActions.length;
+  [...container.classList].filter(className => className.startsWith("actions-count-")).forEach(className => container.classList.remove(className));
   container.classList.add("card-action-grid");
+  container.classList.add(actionCountClass(visibleCount));
   container.dataset.actionTone = tone === "dark" ? "dark" : "light";
+  container.dataset.actionCount = String(visibleCount);
   container.replaceChildren(fragment);
   return rendered;
 }

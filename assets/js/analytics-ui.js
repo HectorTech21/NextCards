@@ -1,4 +1,4 @@
-import {cardService} from "./cards.js";
+import {cardService} from "./cards.js?v=1.2.0";
 import {
   ANALYTICS_EVENT_TYPES,
   ANALYTICS_MAX_EVENTS,
@@ -21,7 +21,7 @@ import {
 import {generateAnalyticsDemoData} from "./analytics-demo.js";
 import {getSourcedPublicCardUrl} from "./card-export.js";
 import {templateService} from "./templates-store.js";
-import {formatPersonName,settingsService} from "./settings-store.js";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.2.0";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SERIES = Object.freeze({
@@ -294,6 +294,10 @@ function makePerson(card, cardId) {
     const photo = create("img");
     photo.src = card.photo;
     photo.alt = "";
+    photo.loading = "lazy";
+    photo.decoding = "async";
+    photo.style.objectPosition = card.photoPosition || "center";
+    photo.addEventListener("error", () => photo.replaceWith(create("span", "analytics-rank-avatar", initials(card))), {once: true});
     person.append(photo);
   } else person.append(create("span", "analytics-rank-avatar", initials(card)));
   const button = create("button");
@@ -446,6 +450,9 @@ function renderDetail(cardId) {
     const photo = create("img");
     photo.src = card.photo;
     photo.alt = `Foto de ${fullName(card)}`;
+    photo.decoding = "async";
+    photo.style.objectPosition = card.photoPosition || "center";
+    photo.addEventListener("error", () => photo.replaceWith(create("span", "analytics-detail-avatar", initials(card))), {once: true});
     profile.append(photo);
   } else profile.append(create("span", "analytics-detail-avatar", initials(card)));
   const profileText = create("div");

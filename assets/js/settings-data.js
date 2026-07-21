@@ -1,4 +1,4 @@
-import {INITIAL_DATA_VERSION, SEED_VERSION_KEY, STORAGE_KEY, storage} from "./storage.js";
+import {INITIAL_DATA_VERSION, SEED_VERSION_KEY, STORAGE_KEY, storage} from "./storage.js?v=1.2.0";
 import {TEMPLATES_DATA_VERSION, TEMPLATES_STORAGE_KEY, TEMPLATES_VERSION_KEY, templateService} from "./templates-store.js";
 import {ANALYTICS_EVENTS_KEY, ANALYTICS_SCHEMA_KEY, ANALYTICS_SCHEMA_VERSION} from "./analytics-store.js";
 import {
@@ -7,7 +7,7 @@ import {
   SETTINGS_STORAGE_KEY,
   settingsService,
   validateSettings,
-} from "./settings-store.js";
+} from "./settings-store.js?v=1.2.0";
 
 export const BACKUP_FORMAT = "nextcards-backup";
 export const BACKUP_VERSION = 1;
@@ -293,15 +293,39 @@ export async function checkDataIntegrity({cards = storage.getCards(), templates 
   const add = (level, code, message, reference = "") => issues.push({level, code, message, reference});
   duplicateValues(cards, "id").forEach(value => add("error", "DUPLICATE_ID", `ID de tarjeta duplicado: ${value}.`, value));
   duplicateValues(cards, "slug").forEach(value => add("error", "DUPLICATE_SLUG", `Slug duplicado: ${value}.`, value));
-  const templateIds = new Set(templates.map(template => template.id));
-  const required = ["id", "slug", "firstName", "lastName", "jobTitle", "department", "email"];
+  duplicateValues(templates, "id").forEach(value => add("error", "DUPLICATE_TEMPLATE_ID", `ID de plantilla duplicado: ${value}.`, value));
+  const templateMap = new Map(templates.map(template => [template.id, template]));
+  const required = ["id", "slug", "firstName", "lastName", "jobTitle", "department", "email", "template"];
   for (const card of cards) {
     required.forEach(key => { if (!String(card?.[key] || "").trim()) add("error", "REQUIRED_FIELD", `Falta el campo obligatorio ${key}.`, card?.id || card?.slug || "sin-id"); });
-    if (card.template && !templateIds.has(card.template)) add("warning", "MISSING_TEMPLATE", `La plantilla ${card.template} no existe; se usará el fallback.`, card.id);
+    if (card.slug && !/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/.test(card.slug)) add("error", "INVALID_SLUG", "El slug contiene caracteres no permitidos.", card.id);
+    if (card.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(card.email)) add("error", "INVALID_EMAIL", "El email no tiene un formato válido.", card.id);
+    if (!['active', 'draft', 'disabled'].includes(card.status)) add("error", "UNKNOWN_STATUS", `Estado de tarjeta desconocido: ${card.status || "vacío"}.`, card.id);
+    const assignedTemplate = templateMap.get(card.template);
+    if (card.template && !assignedTemplate) add("warning", "MISSING_TEMPLATE", `La plantilla ${card.template} no existe; se usará el fallback seguro.`, card.id);
+    else if (assignedTemplate?.status === "archived") add("warning", "ARCHIVED_TEMPLATE", `La plantilla ${card.template} está archivada.`, card.id);
     ["website", "linkedin", "customLink"].forEach(key => { if (!isValidHttpUrl(card[key])) add("warning", "INVALID_URL", `${key} no contiene una URL válida.`, card.id); });
     const structuralIssue = structuralPhotoIssue(card.photo);
     if (structuralIssue) add("warning", "PHOTO_PATH", structuralIssue, card.id);
     else if (checkPhotos && card.photo && !(await canLoadPhoto(card.photo))) add("warning", "BROKEN_PHOTO", "No se ha podido cargar la fotografía.", card.id);
+  }
+  for (const template of templates) {
+    if (!String(template?.id || "").trim() || !String(template?.name || "").trim()) add("error", "INVALID_TEMPLATE", "Hay una plantilla sin ID o nombre.", template?.id || "sin-id");
+    if (!["system", "custom"].includes(template?.type)) add("error", "UNKNOWN_TEMPLATE_TYPE", `Tipo de plantilla desconocido: ${template?.type || "vacío"}.`, template?.id || "sin-id");
+    if (!["active", "archived"].includes(template?.status)) add("error", "UNKNOWN_TEMPLATE_STATUS", `Estado de plantilla desconocido: ${template?.status || "vacío"}.`, template?.id || "sin-id");
+    ["backgroundColor", "accentColor", "textColor"].forEach(key => { if (!/^#[0-9a-f]{6}$/i.test(template?.theme?.[key] || "")) add("error", "INVALID_TEMPLATE_THEME", `La plantilla no tiene un valor válido para ${key}.`, template?.id || "sin-id"); });
+  }
+  try {
+    const rawSettings = globalThis.localStorage?.getItem(SETTINGS_STORAGE_KEY);
+    if (rawSettings) {
+      const parsedSettings = JSON.parse(rawSettings);
+      const settingsValidation = validateSettings(parsedSettings);
+      settingsValidation.errors.forEach(item => add("error", "INVALID_SETTINGS", item.message, item.path || "configuración"));
+      const defaultTemplate = templateMap.get(settingsValidation.settings.cards.defaultTemplateId);
+      if (!defaultTemplate || defaultTemplate.status !== "active") add("warning", "INVALID_DEFAULT_TEMPLATE", "La plantilla predeterminada no existe o está archivada; se usará un fallback seguro.", settingsValidation.settings.cards.defaultTemplateId);
+    }
+  } catch {
+    add("error", "CORRUPT_SETTINGS", "La configuración local no contiene JSON válido.", SETTINGS_STORAGE_KEY);
   }
   const versions = [
     ["tarjetas", Number(globalThis.localStorage?.getItem(SEED_VERSION_KEY) || INITIAL_DATA_VERSION), INITIAL_DATA_VERSION],
