@@ -8,5 +8,7 @@
   --ink:#11111f;--muted:#686878;--surface:#f6f6f9;--dark-surface:#000029;--border:#e7e7ed;--danger:#c62f20;
   --shadow-sm:0 4px 16px rgba(0,0,41,.07);--shadow-md:0 18px 48px rgba(0,0,41,.13);
   --radius-sm:10px;--radius:16px;--radius-lg:24px;--sidebar:248px;
+  --action-size:60px;--action-radius:18px;--action-icon-size:27px;--action-label-size:.72rem;
+  --action-label-color:var(--navy);--action-animation-speed:4.2s;--action-primary:var(--navy);--action-accent:var(--orange);
   --font:"Space Grotesk",Arial,Helvetica,sans-serif;
 }

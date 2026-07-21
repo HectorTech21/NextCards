@@ -1,23 +1,9 @@
 import {templateService,readableTextColor} from "./templates-store.js";
 import {formatPersonName,settingsService} from "./settings-store.js";
+import {renderActionGrid} from "./card-actions.js";
 
-const NS="http://www.w3.org/2000/svg";
-const icons={
-  phone:"M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13 1 .37 1.97.72 2.89a2 2 0 0 1-.45 2.11L8.1 10a16 16 0 0 0 6 6l1.28-1.28a2 2 0 0 1 2.11-.45c.92.35 1.89.59 2.89.72A2 2 0 0 1 22 16.92z",
-  mail:"M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z M22 6l-10 7L2 6",
-  web:"M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z M2 12h20 M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10",
-  linkedin:"M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z M2 9h4v12H2z M4 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"
-};
-function svgIcon(name){
-  const svg=document.createElementNS(NS,"svg");svg.setAttribute("viewBox","0 0 24 24");svg.setAttribute("fill","none");svg.setAttribute("stroke","currentColor");svg.setAttribute("stroke-width","2");svg.setAttribute("aria-hidden","true");
-  icons[name].split(" M").forEach((d,i)=>{const path=document.createElementNS(NS,"path");path.setAttribute("d",i?`M${d}`:d);svg.append(path)});return svg;
-}
 function el(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node}
 function initials(card){return `${card.firstName?.[0]||""}${card.lastName?.[0]||""}`.toUpperCase()}
-function addLink(container,href,icon,label,eventType){
-  const a=el("a");a.href=href;a.target=href.startsWith("http")?"_blank":"";if(a.target)a.rel="noopener noreferrer";a.append(svgIcon(icon),document.createTextNode(label));container.append(a);
-  if(eventType)a.dataset.analyticsEvent=eventType;
-}
 
 function logoSource(theme){
   if(theme.logoVariant==="blue")return "assets/img/logos/lognext-positive.svg";
@@ -45,9 +31,10 @@ function applyTheme(container,card,template){
   container.style.setProperty("--template-secondary-text",readableTextColor(theme.secondaryColor));
   container.style.setProperty("--template-button-text",readableTextColor(accent));
   container.style.setProperty("--accent",accent);
+  container.dataset.cardTone=readableTextColor(theme.backgroundColor)==="#FFFFFF"?"dark":"light";
 }
 
-export function renderCardPreview(container,card,templateOverride=null,settingsOverride=null){
+export function renderCardPreview(container,card,templateOverride=null,settingsOverride=null,{interactive=false}={}){
   container.replaceChildren();
   const settings=settingsOverride||settingsService.getSettings();
   const template=templateOverride||templateService.resolveTemplate(card.template);
@@ -68,11 +55,16 @@ export function renderCardPreview(container,card,templateOverride=null,settingsO
   if(metadata.length)identity.append(el("p","dc-meta",metadata.join(" · ")));
   if(card.bio&&card.visibleFields?.bio!==false) identity.append(el("p","dc-bio",card.bio));
   const contact=el("div","dc-contact");
-  if(card.phone&&card.visibleFields?.phone!==false)addLink(contact,`tel:${card.phone.replace(/[^\d+]/g,"")}`,"phone",card.phone,"phone_click");
-  if(card.email&&card.visibleFields?.email!==false)addLink(contact,`mailto:${card.email}`,"mail",card.email,"email_click");
+  const contactActions=[];
+  if(card.phone&&card.visibleFields?.phone!==false)contactActions.push({type:"phone",label:"Teléfono",ariaLabel:`Llamar a ${card.phone}`,href:`tel:${card.phone.replace(/[^\d+]/g,"")}`,eventType:"phone_click"});
+  if(card.email&&card.visibleFields?.email!==false)contactActions.push({type:"email",label:"Email",ariaLabel:`Enviar un email a ${card.email}`,href:`mailto:${card.email}`,eventType:"email_click"});
+  renderActionGrid(contact,contactActions,{tone:container.dataset.cardTone,interactive});
   const socials=el("div","dc-socials");
-  if(card.linkedin&&card.visibleFields?.linkedin!==false)addLink(socials,card.linkedin,"linkedin","","linkedin_click"); 
-  if(card.website&&card.visibleFields?.website!==false)addLink(socials,card.website,"web","","website_click");
+  const socialActions=[];
+  if(card.linkedin&&card.visibleFields?.linkedin!==false)socialActions.push({type:"linkedin",label:"LinkedIn",ariaLabel:`Abrir el perfil de LinkedIn de ${formatPersonName(card,settings)}`,href:card.linkedin,target:"_blank",eventType:"linkedin_click"});
+  if(card.website&&card.visibleFields?.website!==false)socialActions.push({type:"website",label:"Website",ariaLabel:"Abrir el sitio web de Lognext",href:card.website,target:"_blank",eventType:"website_click"});
+  renderActionGrid(socials,socialActions,{tone:container.dataset.cardTone,interactive});
+  container.dataset.previewMode=interactive?"interactive":"safe";
   const blocks={identity,contact,social:socials};
   const order={
     "identity-contact-social":["identity","contact","social"],

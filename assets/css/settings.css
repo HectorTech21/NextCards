@@ -119,7 +119,6 @@
 .settings-preview-phone .digital-card .dc-logo{margin-bottom:17px}
 .settings-preview-phone .digital-card h1{font-size:1.15rem;margin-top:12px}
 .settings-preview-phone .digital-card .dc-photo,.settings-preview-phone .digital-card .dc-initials{width:70px;height:70px}
-.settings-preview-phone .digital-card .dc-contact{margin-bottom:13px}
 .settings-preview-phone .digital-card .dc-bio{display:none}
 .settings-preview-actions{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0 0}.settings-preview-actions span{border:1px solid rgba(255,255,255,.17);border-radius:999px;background:rgba(255,255,255,.07);padding:4px 7px;color:rgba(255,255,255,.8);font-size:.54rem}.settings-preview[data-density=compact] .settings-preview-phone .digital-card .dc-inner{padding:18px 14px}.settings-preview[data-density=compact] .settings-preview-actions{gap:3px}.settings-preview[data-density=compact] .settings-preview-actions span{padding:3px 6px}
 .settings-preview>p{text-align:center;font-size:.57rem;color:rgba(255,255,255,.52);line-height:1.4;margin:10px 10px 1px}

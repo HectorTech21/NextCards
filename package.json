@@ -9,7 +9,8 @@
     "test:templates": "node scripts/test-templates.mjs",
     "test:analytics": "node scripts/test-analytics.mjs",
     "test:settings": "node scripts/test-settings.mjs",
-    "test": "pnpm test:seed && pnpm test:templates && pnpm test:analytics && pnpm test:settings"
+    "test:actions": "node scripts/test-card-actions.mjs",
+    "test": "pnpm test:seed && pnpm test:templates && pnpm test:analytics && pnpm test:settings && pnpm test:actions"
   },
   "devDependencies": {
     "qrcode-generator": "1.4.4",
