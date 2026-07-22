@@ -1,6 +1,7 @@
 import {templateService,readableTextColor} from "./templates-store.js";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.2.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.4.0";
 import {renderActionGrid} from "./card-actions.js?v=1.2.0";
+import {createPhotoFrameImage} from "./photo-frame.js?v=1.4.0";
 
 function el(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node}
 function initials(card){return `${card.firstName?.[0]||""}${card.lastName?.[0]||""}`.toUpperCase()}
@@ -48,9 +49,10 @@ export function renderCardPreview(container,card,templateOverride=null,settingsO
   const identity=el("div","dc-identity");
   if(card.visibleFields?.photo!==false){
     if(card.photo){
-      const photo=el("img","dc-photo");photo.src=card.photo;photo.alt=`Foto de ${card.firstName||"empleado"}`;photo.decoding="async";photo.style.objectPosition=card.photoPosition||"center";
-      if(interactive)photo.fetchPriority="high";else photo.loading="lazy";
-      photo.addEventListener("error",()=>photo.replaceWith(initialsNode(card)),{once:true});identity.append(photo);
+      const frame=el("div","dc-photo");
+      const photo=createPhotoFrameImage(card.photo,{alt:`Foto de ${card.firstName||"empleado"}`,frame:card.photoFrame,legacyPosition:card.photoPosition,loading:interactive?"":"lazy",onError:()=>frame.replaceWith(initialsNode(card))});
+      if(interactive)photo.fetchPriority="high";
+      frame.append(photo);identity.append(frame);
     }else identity.append(initialsNode(card));
   }
   identity.append(el("h1","",formatPersonName({firstName:card.firstName||"Nombre",lastName:card.lastName||"Apellidos"},settings)));

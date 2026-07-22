@@ -13,7 +13,7 @@ assert.match(editor, /trapEditorFocus/);
 assert.match(editor, /regenerate-slug/);
 assert.match(editor, /Hay cambios sin guardar/);
 assert.match(preview, /addEventListener\("error"/);
-assert.match(app, /loading="lazy"/);
+assert.match(app, /loading(?::|=)"lazy"/);
 assert.match(index, /aria-current="page"/);
 assert.match(index, /class="editor-dialog"[^>]+tabindex="-1"/);
 assert.match(card, /rel="canonical"/);

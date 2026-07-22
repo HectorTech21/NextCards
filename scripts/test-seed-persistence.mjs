@@ -46,7 +46,8 @@ async function loadStorage() {
 
 const first = await loadStorage();
 assert.equal(first.storage.getCards().length, 16, "La primera apertura debe cargar 16 tarjetas.");
-assert.equal(localStorage.getItem(first.SEED_VERSION_KEY), "1", "Debe registrarse la versión del seed.");
+assert.equal(localStorage.getItem(first.SEED_VERSION_KEY), "2", "Debe registrarse la versión del seed.");
+assert.ok(first.storage.getCards().every(card => card.photoFrame?.x === 50 && card.photoFrame?.y === 50 && card.photoFrame?.scale === 1), "El seed debe recibir un encuadre compatible por defecto.");
 
 const firstReload = await loadStorage();
 assert.equal(firstReload.storage.getCards().length, 16, "La primera recarga no debe duplicar tarjetas.");
@@ -106,9 +107,11 @@ assert.equal(cardService.query({ search: "javier.pedraza@lognext.com" }).length,
 assert.equal(cardService.query({ search: "CFO" }).length, 1, "La búsqueda por cargo debe encontrar la variante CFO.");
 assert.equal(cardService.query({ department: "STAFF" }).length, 16, "El filtro de departamento debe conservar todas las tarjetas STAFF.");
 assert.equal(cardService.query({ status: "active" }).length, 16, "El filtro de estado debe devolver las 16 tarjetas activas.");
-const duplicated = cardService.duplicate(francisco[0].id);
+const framedSource = cardService.update(francisco[0].id, {photoFrame: {x: 38, y: 64, scale: 1.35}});
+const duplicated = cardService.duplicate(framedSource.id);
 assert.equal(cardService.all().length, 17, "Duplicar debe crear una tarjeta adicional.");
 assert.notEqual(duplicated.id, francisco[0].id, "La tarjeta duplicada debe recibir otro ID.");
+assert.deepEqual(duplicated.photoFrame, framedSource.photoFrame, "La tarjeta duplicada debe conservar el encuadre inicial.");
 cardService.remove(duplicated.id);
 assert.equal(cardService.all().length, 16, "Eliminar debe retirar únicamente la tarjeta indicada.");
 cardService.toggleDisabled(francisco[0].id);
@@ -126,6 +129,15 @@ const migrated = (await loadStorage()).storage.getCards();
 assert.equal(migrated.length, 17, "La migración debe sustituir demos intactos y conservar tarjetas manuales.");
 assert.ok(migrated.some(card => card.id === "manual-preserved"), "La tarjeta manual debe conservarse.");
 assert.ok(legacyDemoCards.every(demo => !migrated.some(card => card.id === demo.id)), "Los demos intactos deben eliminarse.");
+
+localStorage.setItem(first.STORAGE_KEY, JSON.stringify([{...seed[0], photoPosition: "top"}]));
+localStorage.setItem(first.SEED_VERSION_KEY, "1");
+const frameMigration = await loadStorage();
+const migratedFrameCard = frameMigration.storage.getCards()[0];
+assert.deepEqual(migratedFrameCard.photoFrame, {x: 50, y: 0, scale: 1}, "La migración debe convertir el encuadre superior antiguo.");
+assert.ok(!("photoPosition" in migratedFrameCard), "La migración debe retirar el campo antiguo.");
+assert.equal(localStorage.getItem(first.SEED_VERSION_KEY), "2", "La migración debe actualizar la versión de tarjetas.");
+frameMigration.storage.restoreInitialData();
 
 const importStorage = await loadStorage();
 const beforeInvalidImport = localStorage.getItem(importStorage.STORAGE_KEY);

@@ -1,14 +1,15 @@
-import {storage} from "./storage.js?v=1.2.0";
-import {cardService} from "./cards.js?v=1.2.0";
-import {setupEditor,openEditor,deleteFromDashboard} from "./editor.js?v=1.2.0";
+import {storage} from "./storage.js?v=1.4.0";
+import {cardService} from "./cards.js?v=1.4.0";
+import {setupEditor,openEditor,deleteFromDashboard} from "./editor.js?v=1.4.0";
 import {getSourcedPublicCardUrl} from "./card-export.js";
 import {copyText} from "./card-sharing.js?v=1.3.1";
-import {openQuickView,refreshQuickView,setupQuickView} from "./quick-view.js?v=1.3.1";
-import {setupTemplatesUI,renderTemplatesSection} from "./templates-ui.js?v=1.2.0";
+import {openQuickView,refreshQuickView,setupQuickView} from "./quick-view.js?v=1.4.0";
+import {setupTemplatesUI,renderTemplatesSection} from "./templates-ui.js?v=1.4.0";
 import {templateService} from "./templates-store.js";
-import {setupAnalyticsUI,renderAnalyticsSection} from "./analytics-ui.js?v=1.2.0";
-import {applySettingsToDocument,formatPersonName,getDefaultSettings,settingsService} from "./settings-store.js?v=1.2.0";
-import {isSettingsDirty,renderSettingsSection,requestSettingsLeave,setupSettingsUI} from "./settings-ui.js?v=1.2.0";
+import {setupAnalyticsUI,renderAnalyticsSection} from "./analytics-ui.js?v=1.4.0";
+import {applySettingsToDocument,formatPersonName,getDefaultSettings,settingsService} from "./settings-store.js?v=1.4.0";
+import {isSettingsDirty,renderSettingsSection,requestSettingsLeave,setupSettingsUI} from "./settings-ui.js?v=1.4.0";
+import {createPhotoFrameImage} from "./photo-frame.js?v=1.4.0";
 
 const iconPaths={
   cards:"M4 4h16v16H4z M8 8h8 M8 12h6",people:"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75",
@@ -67,7 +68,7 @@ function createCard(card,settings){
   const menu=node("div","card-menu");menu.hidden=true;
   [["Vista rápida","quick-view"],["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]].forEach(([label,action])=>{const b=createButton(label,action==="delete"?"danger":"",action,card.id);menu.append(b)});
   cover.append(quickTrigger,logo,menuButton,menu);
-  if(card.photo&&card.visibleFields?.photo!==false){const img=node("img","employee-photo");img.src=card.photo;img.alt=`Foto de ${displayName}`;img.loading="lazy";img.decoding="async";img.style.objectPosition=card.photoPosition||"center";img.addEventListener("error",()=>img.replaceWith(node("div","employee-initials",initials(card))),{once:true});cover.append(img)}else cover.append(node("div","employee-initials",initials(card)));
+  if(card.photo&&card.visibleFields?.photo!==false){const frame=node("div","employee-photo");const img=createPhotoFrameImage(card.photo,{alt:`Foto de ${displayName}`,frame:card.photoFrame,legacyPosition:card.photoPosition,loading:"lazy",onError:()=>frame.replaceWith(node("div","employee-initials",initials(card)))});frame.append(img);cover.append(frame)}else cover.append(node("div","employee-initials",initials(card)));
   const info=node("div","employee-info"),top=node("div","employee-info-top");
   top.append(node("span",`status status-${card.status}`,statusLabels[card.status]||card.status));
   const template=templateService.resolveTemplate(card.template,{warn:false});

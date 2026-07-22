@@ -1,10 +1,10 @@
-import {cardService} from "./cards.js?v=1.2.0";
-import {renderCardPreview} from "./preview.js?v=1.2.0";
+import {cardService} from "./cards.js?v=1.4.0";
+import {renderCardPreview} from "./preview.js?v=1.4.0";
 import {buildVcard,getPublicCardUrl,getSourcedPublicCardUrl,getVcardFilename} from "./card-export.js";
 import {copyText,shareCard} from "./card-sharing.js?v=1.3.1";
 import {renderQr} from "./qr-code.js?v=1.3.1";
 import {getAccessContext,safeTrackEvent,trackPublicCardView} from "./analytics.js";
-import {applySettingsToDocument,formatPersonName,settingsService} from "./settings-store.js?v=1.2.0";
+import {applySettingsToDocument,formatPersonName,settingsService} from "./settings-store.js?v=1.4.0";
 import {createActionIcon,renderActionGrid,setActionFeedback} from "./card-actions.js?v=1.2.0";
 
 document.querySelectorAll("[data-icon]").forEach(slot=>slot.append(createActionIcon(slot.dataset.icon)));

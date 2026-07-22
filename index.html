@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="assets/css/dashboard.css?v=1.2.0">
   <link rel="stylesheet" href="assets/css/quick-view.css?v=1.3.1">
   <link rel="stylesheet" href="assets/css/editor.css?v=1.2.0">
+  <link rel="stylesheet" href="assets/css/photo-frame.css?v=1.4.0">
   <link rel="stylesheet" href="assets/css/templates.css?v=1.2.0">
   <link rel="stylesheet" href="assets/css/analytics.css?v=1.2.0">
   <link rel="stylesheet" href="assets/css/settings.css?v=1.2.0">
@@ -491,7 +492,7 @@
             <div class="section-heading"><span>01</span><div><h3>Datos personales</h3><p>Información principal del empleado.</p></div></div>
             <div class="photo-field">
               <div class="photo-preview" id="photo-preview"><span data-icon="user"></span></div>
-              <div><label class="button button-secondary" for="photo-input"><span data-icon="image"></span>Subir fotografía</label><input id="photo-input" name="photoFile" type="file" accept="image/png,image/jpeg,image/webp" hidden><p>PNG, JPG o WebP. Máximo 1 MB.</p><div class="photo-tools"><label class="photo-position-control" id="photo-position-control">Encuadre<select name="photoPosition"><option value="center">Centrado</option><option value="top">Parte superior</option><option value="bottom">Parte inferior</option></select></label><button class="text-button danger" type="button" data-action="remove-photo" id="remove-photo-button">Eliminar foto</button></div></div>
+              <div class="photo-field-copy"><label class="button button-secondary" for="photo-input"><span data-icon="image"></span>Subir fotografía</label><input id="photo-input" name="photoFile" type="file" accept="image/png,image/jpeg,image/webp" hidden><p>PNG, JPG o WebP. Máximo 1 MB.</p><p class="photo-editor-warning" id="photo-editor-warning" role="status" hidden></p><div class="photo-tools"><button class="button button-secondary" type="button" data-action="adjust-photo-frame" id="adjust-photo-frame-button" hidden><span data-icon="image"></span>Ajustar encuadre</button><button class="text-button danger" type="button" data-action="remove-photo" id="remove-photo-button" hidden>Eliminar foto</button></div></div>
             </div>
             <div class="form-grid">
               <label>Nombre <span>*</span><input name="firstName" required maxlength="60" autocomplete="given-name"><small class="field-error"></small></label>
@@ -562,6 +563,43 @@
           <p>La tarjeta se adapta automáticamente a cualquier pantalla.</p>
         </aside>
       </div>
+    </section>
+  </div>
+
+  <div class="photo-frame-modal" id="photo-frame-modal" hidden>
+    <section class="photo-frame-dialog" id="photo-frame-dialog" role="dialog" aria-modal="true" aria-labelledby="photo-frame-title" aria-describedby="photo-frame-description" tabindex="-1">
+      <header class="photo-frame-header">
+        <div><span class="eyebrow">Fotografía de perfil</span><h2 id="photo-frame-title">Encuadre de fotografía</h2><p id="photo-frame-description">Ajusta la posición sin modificar la imagen original.</p></div>
+        <button class="icon-button" type="button" data-photo-frame-action="close" aria-label="Cerrar editor de encuadre"><span data-icon="close"></span></button>
+      </header>
+      <div class="photo-frame-body">
+        <div class="photo-frame-visual">
+          <div class="photo-frame-stage shape-circle" id="photo-frame-stage" tabindex="0" aria-label="Previsualización del encuadre. Usa las flechas para mover la fotografía y Mayúsculas más flechas para un ajuste mayor." aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown">
+            <img id="photo-frame-image" alt="">
+          </div>
+          <p class="photo-frame-help">Arrastra la imagen para ajustar la posición y utiliza el control de zoom. También puedes usar las flechas del teclado.</p>
+          <p class="photo-frame-status" id="photo-frame-status" role="status" aria-live="polite"></p>
+        </div>
+        <div class="photo-frame-controls">
+          <label class="photo-frame-control" for="photo-frame-zoom"><span>Zoom <output id="photo-frame-zoom-value" for="photo-frame-zoom">100%</output></span><input id="photo-frame-zoom" type="range" min="100" max="250" step="1" value="100" aria-label="Zoom de la fotografía"></label>
+          <label class="photo-frame-control" for="photo-frame-x"><span>Posición horizontal <output id="photo-frame-x-value" for="photo-frame-x">50%</output></span><input id="photo-frame-x" type="range" min="0" max="100" step="1" value="50" aria-label="Posición horizontal de la fotografía"></label>
+          <label class="photo-frame-control" for="photo-frame-y"><span>Posición vertical <output id="photo-frame-y-value" for="photo-frame-y">50%</output></span><input id="photo-frame-y" type="range" min="0" max="100" step="1" value="50" aria-label="Posición vertical de la fotografía"></label>
+          <div class="photo-frame-nudge" role="group" aria-label="Ajuste fino de posición">
+            <button type="button" data-photo-nudge="left" aria-label="Mover encuadre a la izquierda">←</button>
+            <button type="button" data-photo-nudge="right" aria-label="Mover encuadre a la derecha">→</button>
+            <button type="button" data-photo-nudge="up" aria-label="Mover encuadre hacia arriba">↑</button>
+            <button type="button" data-photo-nudge="down" aria-label="Mover encuadre hacia abajo">↓</button>
+          </div>
+          <div class="photo-frame-utility-actions">
+            <button class="button button-secondary" type="button" data-photo-frame-action="center">Centrar</button>
+            <button class="button button-secondary" type="button" data-photo-frame-action="restore">Restaurar</button>
+          </div>
+        </div>
+      </div>
+      <footer class="photo-frame-footer">
+        <button class="button button-secondary" type="button" data-photo-frame-action="cancel">Cancelar</button>
+        <button class="button button-primary" id="photo-frame-apply" type="button" data-photo-frame-action="apply">Aplicar</button>
+      </footer>
     </section>
   </div>
 
@@ -660,6 +698,6 @@
 
   <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
   <script src="assets/js/vendor/qrcode-generator.js?v=1.3.1"></script>
-  <script type="module" src="assets/js/app.js?v=1.3.1-2"></script>
+  <script type="module" src="assets/js/app.js?v=1.4.0"></script>
 </body>
 </html>

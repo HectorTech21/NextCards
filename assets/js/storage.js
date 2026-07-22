@@ -1,6 +1,8 @@
+import {normalizeCardPhotoFrame} from "./photo-frame.js?v=1.4.0";
+
 export const STORAGE_KEY = "nextcards.cards.v1";
 export const SEED_VERSION_KEY = "nextcards.seed.version";
-export const INITIAL_DATA_VERSION = 1;
+export const INITIAL_DATA_VERSION = 2;
 
 const LEGACY_DEMO_SIGNATURES = [
   { id: "irma-rivera", slug: "irma-rivera-molins", email: "irma.rivera@lognext.com", jobTitle: "People & Culture", status: "active", template: "corporate-navy" },
@@ -10,6 +12,10 @@ const LEGACY_DEMO_SIGNATURES = [
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function normalizeCards(cards) {
+  return cards.map(card => normalizeCardPhotoFrame(card));
 }
 
 function normalize(value = "") {
@@ -32,14 +38,14 @@ async function loadInitialCards() {
   return cards;
 }
 
-const initialCards = await loadInitialCards();
+const initialCards = normalizeCards(await loadInitialCards());
 let lastReadError=null;
 
 function migrateFirstSeed(existingCards) {
   const preserved = existingCards.filter(card => !isUntouchedLegacyDemo(card));
   const preservedIdentities = new Set(preserved.map(cardIdentity));
   const missingInitialCards = initialCards.filter(card => !preservedIdentities.has(cardIdentity(card)));
-  return [...clone(missingInitialCards), ...preserved];
+  return normalizeCards([...clone(missingInitialCards), ...preserved]);
 }
 
 function initializeCards() {
@@ -49,9 +55,10 @@ function initializeCards() {
   if (rawCards === null) {
     if (rawVersion !== null) {
       localStorage.setItem(STORAGE_KEY, "[]");
+      if (Number(rawVersion) < INITIAL_DATA_VERSION) localStorage.setItem(SEED_VERSION_KEY, String(INITIAL_DATA_VERSION));
       return [];
     }
-    const seeded = clone(initialCards);
+    const seeded = normalizeCards(clone(initialCards));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
     localStorage.setItem(SEED_VERSION_KEY, String(INITIAL_DATA_VERSION));
     return seeded;
@@ -67,7 +74,11 @@ function initializeCards() {
     return migrated;
   }
 
-  return parsed;
+  const normalized = normalizeCards(parsed);
+  const serialized = JSON.stringify(normalized);
+  if (serialized !== rawCards) localStorage.setItem(STORAGE_KEY, serialized);
+  if (Number(rawVersion) < INITIAL_DATA_VERSION) localStorage.setItem(SEED_VERSION_KEY, String(INITIAL_DATA_VERSION));
+  return normalized;
 }
 
 export const storage = {
@@ -81,9 +92,10 @@ export const storage = {
     }
   },
   saveCards(cards) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+    const normalized = normalizeCards(cards);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     lastReadError=null;
-    return cards;
+    return normalized;
   },
   consumeReadError() {
     const error=lastReadError;lastReadError=null;return error;
@@ -112,10 +124,10 @@ export const storage = {
     const duplicate=(key)=>{const seen=new Set();return parsed.find(card=>{const value=String(card[key]).trim().toLowerCase();if(seen.has(value))return true;seen.add(value);return false})};
     if(duplicate("id"))throw new Error("El archivo contiene IDs de tarjeta duplicados.");
     if(duplicate("slug"))throw new Error("El archivo contiene slugs duplicados.");
-    const cards=clone(parsed);this.saveCards(cards);return cards;
+    const cards=normalizeCards(clone(parsed));this.saveCards(cards);return cards;
   },
   restoreInitialData() {
-    const seeded = clone(initialCards);
+    const seeded = normalizeCards(clone(initialCards));
     this.saveCards(seeded);
     localStorage.setItem(SEED_VERSION_KEY, String(INITIAL_DATA_VERSION));
     return seeded;

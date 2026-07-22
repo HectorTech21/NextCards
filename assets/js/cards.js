@@ -1,6 +1,7 @@
-import {storage} from "./storage.js?v=1.2.0";
+import {storage} from "./storage.js?v=1.4.0";
 import {templateService} from "./templates-store.js";
-import {settingsService} from "./settings-store.js?v=1.2.0";
+import {settingsService} from "./settings-store.js?v=1.4.0";
+import {DEFAULT_PHOTO_FRAME,normalizeCardPhotoFrame} from "./photo-frame.js?v=1.4.0";
 
 const uid=()=>globalThis.crypto?.randomUUID?.()||`card-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const stamp=()=>new Date().toISOString();
@@ -25,13 +26,13 @@ export const cardService = {
   get(identifier){ return this.all().find(card=>card.id===identifier||card.slug===identifier); },
   create(data){
     const cards=this.all();
-    const card={...data,id:uid(),createdAt:stamp(),updatedAt:stamp()};
+    const card=normalizeCardPhotoFrame({...data,id:uid(),createdAt:stamp(),updatedAt:stamp()});
     cards.unshift(card); storage.saveCards(cards); return card;
   },
   update(id,data){
     const cards=this.all(); const index=cards.findIndex(card=>card.id===id);
     if(index<0) throw new Error("No se ha encontrado la tarjeta.");
-    cards[index]={...cards[index],...data,id,updatedAt:stamp()}; storage.saveCards(cards); return cards[index];
+    cards[index]=normalizeCardPhotoFrame({...cards[index],...data,id,updatedAt:stamp()}); storage.saveCards(cards); return cards[index];
   },
   remove(id){ storage.saveCards(this.all().filter(card=>card.id!==id)); },
   duplicate(id){
@@ -60,7 +61,7 @@ export function emptyCard(){
   return {
     id:"",slug:"",cardName:"",firstName:"",lastName:"",jobTitle:"",department:"",city:"Madrid",pronouns:"",
     email:"",phone:"",mobile:"",website:settings.publicCard.companyUrl,linkedin:"",location:"Madrid",customLink:"",bio:"",
-    photo:"",photoPosition:"center",template:defaultTemplate.id,accentColor:defaultTemplate.theme.accentColor,status:settings.cards.defaultStatus,language:"es",
+    photo:"",photoFrame:{...DEFAULT_PHOTO_FRAME},template:defaultTemplate.id,accentColor:defaultTemplate.theme.accentColor,status:settings.cards.defaultStatus,language:"es",
     visibleFields:{...settings.cards.defaultVisibleFields}
   };
 }

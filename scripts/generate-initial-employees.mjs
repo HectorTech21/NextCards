@@ -289,6 +289,7 @@ async function generate(audit, projectRoot) {
       customLink: "",
       bio: "",
       photo,
+      photoFrame: { x: 50, y: 50, scale: 1 },
       template: "corporate-navy",
       accentColor: "#FA3C0F",
       status: "active",

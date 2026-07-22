@@ -1,4 +1,4 @@
-import {INITIAL_DATA_VERSION, SEED_VERSION_KEY, STORAGE_KEY, storage} from "./storage.js?v=1.2.0";
+import {INITIAL_DATA_VERSION, SEED_VERSION_KEY, STORAGE_KEY, storage} from "./storage.js?v=1.4.0";
 import {TEMPLATES_DATA_VERSION, TEMPLATES_STORAGE_KEY, TEMPLATES_VERSION_KEY, templateService} from "./templates-store.js";
 import {ANALYTICS_EVENTS_KEY, ANALYTICS_SCHEMA_KEY, ANALYTICS_SCHEMA_VERSION} from "./analytics-store.js";
 import {
@@ -7,7 +7,8 @@ import {
   SETTINGS_STORAGE_KEY,
   settingsService,
   validateSettings,
-} from "./settings-store.js?v=1.2.0";
+} from "./settings-store.js?v=1.4.0";
+import {isValidPhotoFrame,normalizeCardPhotoFrame} from "./photo-frame.js?v=1.4.0";
 
 export const BACKUP_FORMAT = "nextcards-backup";
 export const BACKUP_VERSION = 1;
@@ -79,8 +80,9 @@ export function serializeBackup() {
 }
 
 export function validateBackup(value) {
-  const backup = parseJson(value);
-  if (!backup || typeof backup !== "object" || Array.isArray(backup)) throw problem("La copia no tiene una estructura válida.", "INVALID_BACKUP");
+  const parsedBackup = parseJson(value);
+  if (!parsedBackup || typeof parsedBackup !== "object" || Array.isArray(parsedBackup)) throw problem("La copia no tiene una estructura válida.", "INVALID_BACKUP");
+  const backup = clone(parsedBackup);
   if (backup.format !== BACKUP_FORMAT) throw problem("El archivo no es una copia de seguridad de NextCards.", "INVALID_BACKUP_FORMAT");
   if (!Number.isInteger(backup.backupVersion) || backup.backupVersion < 1 || backup.backupVersion > BACKUP_VERSION) throw problem("La versión de la copia no es compatible con esta versión de NextCards.", "INCOMPATIBLE_BACKUP");
   if (Number(backup.dataVersions?.settings || 0) > SETTINGS_SCHEMA_VERSION || Number(backup.dataVersions?.templates || 0) > TEMPLATES_DATA_VERSION || Number(backup.dataVersions?.cards || 0) > INITIAL_DATA_VERSION) {
@@ -88,6 +90,7 @@ export function validateBackup(value) {
   }
   if (Number(backup.settings?.version || 0) > SETTINGS_SCHEMA_VERSION) throw problem("La configuración incluida pertenece a una versión más reciente.", "INCOMPATIBLE_DATA_VERSION");
   if (!Array.isArray(backup.cards) || !backup.cards.every(validCard)) throw problem("La copia contiene tarjetas incompletas o no válidas.", "INVALID_CARDS");
+  backup.cards = backup.cards.map(card => normalizeCardPhotoFrame(card));
   if (!Array.isArray(backup.customTemplates) || !backup.customTemplates.every(template => template && template.type === "custom" && template.id && template.name)) {
     throw problem("La lista de plantillas personalizadas no es válida.", "INVALID_TEMPLATES");
   }
@@ -305,6 +308,7 @@ export async function checkDataIntegrity({cards = storage.getCards(), templates 
     if (card.template && !assignedTemplate) add("warning", "MISSING_TEMPLATE", `La plantilla ${card.template} no existe; se usará el fallback seguro.`, card.id);
     else if (assignedTemplate?.status === "archived") add("warning", "ARCHIVED_TEMPLATE", `La plantilla ${card.template} está archivada.`, card.id);
     ["website", "linkedin", "customLink"].forEach(key => { if (!isValidHttpUrl(card[key])) add("warning", "INVALID_URL", `${key} no contiene una URL válida.`, card.id); });
+    if (!isValidPhotoFrame(card.photoFrame)) add("warning", "INVALID_PHOTO_FRAME", "El encuadre de fotografía no es válido y se restaurará al valor seguro.", card.id);
     const structuralIssue = structuralPhotoIssue(card.photo);
     if (structuralIssue) add("warning", "PHOTO_PATH", structuralIssue, card.id);
     else if (checkPhotos && card.photo && !(await canLoadPhoto(card.photo))) add("warning", "BROKEN_PHOTO", "No se ha podido cargar la fotografía.", card.id);

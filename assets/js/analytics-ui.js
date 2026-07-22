@@ -1,4 +1,4 @@
-import {cardService} from "./cards.js?v=1.2.0";
+import {cardService} from "./cards.js?v=1.4.0";
 import {
   ANALYTICS_EVENT_TYPES,
   ANALYTICS_MAX_EVENTS,
@@ -21,7 +21,8 @@ import {
 import {generateAnalyticsDemoData} from "./analytics-demo.js";
 import {getSourcedPublicCardUrl} from "./card-export.js";
 import {templateService} from "./templates-store.js";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.2.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.4.0";
+import {createPhotoFrameImage} from "./photo-frame.js?v=1.4.0";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SERIES = Object.freeze({
@@ -291,14 +292,9 @@ function renderChart(events, filters) {
 function makePerson(card, cardId) {
   const person = create("div", "analytics-rank-person");
   if (card.photo) {
-    const photo = create("img");
-    photo.src = card.photo;
-    photo.alt = "";
-    photo.loading = "lazy";
-    photo.decoding = "async";
-    photo.style.objectPosition = card.photoPosition || "center";
-    photo.addEventListener("error", () => photo.replaceWith(create("span", "analytics-rank-avatar", initials(card))), {once: true});
-    person.append(photo);
+    const frame = create("span", "analytics-rank-photo");
+    const photo = createPhotoFrameImage(card.photo, {alt: "", frame: card.photoFrame, legacyPosition: card.photoPosition, loading: "lazy", onError: () => frame.replaceWith(create("span", "analytics-rank-avatar", initials(card)))});
+    frame.append(photo);person.append(frame);
   } else person.append(create("span", "analytics-rank-avatar", initials(card)));
   const button = create("button");
   button.type = "button";
@@ -447,13 +443,9 @@ function renderDetail(cardId) {
 
   const profile = create("section", "analytics-detail-profile");
   if (card.photo) {
-    const photo = create("img");
-    photo.src = card.photo;
-    photo.alt = `Foto de ${fullName(card)}`;
-    photo.decoding = "async";
-    photo.style.objectPosition = card.photoPosition || "center";
-    photo.addEventListener("error", () => photo.replaceWith(create("span", "analytics-detail-avatar", initials(card))), {once: true});
-    profile.append(photo);
+    const frame = create("span", "analytics-detail-photo");
+    const photo = createPhotoFrameImage(card.photo, {alt: `Foto de ${fullName(card)}`, frame: card.photoFrame, legacyPosition: card.photoPosition, onError: () => frame.replaceWith(create("span", "analytics-detail-avatar", initials(card)))});
+    frame.append(photo);profile.append(frame);
   } else profile.append(create("span", "analytics-detail-avatar", initials(card)));
   const profileText = create("div");
   profileText.append(

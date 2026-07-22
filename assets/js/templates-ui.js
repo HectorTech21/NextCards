@@ -1,7 +1,8 @@
-import {cardService} from "./cards.js?v=1.2.0";
-import {renderCardPreview} from "./preview.js?v=1.2.0";
+import {cardService} from "./cards.js?v=1.4.0";
+import {renderCardPreview} from "./preview.js?v=1.4.0";
 import {CORPORATE_PRESETS,templateService,validateTemplateDraft} from "./templates-store.js";
 import {formatPersonName,formatSettingsDate} from "./settings-store.js";
+import {createPhotoFrameImage} from "./photo-frame.js?v=1.4.0";
 
 export const TEMPLATE_SAMPLE_CARD = Object.freeze({
   id: "template-preview-sample",
@@ -254,7 +255,7 @@ function renderApplyCards(){
   const cards=filteredApplyCards(),templates=new Map(templateService.getTemplates().map(item=>[item.id,item.name])),list=document.querySelector("#apply-card-list");list.replaceChildren();
   cards.forEach(card=>{
     const row=node("label","apply-card-row"),checkbox=node("input");checkbox.type="checkbox";checkbox.dataset.cardId=card.id;checkbox.checked=selectedCardIds.has(card.id);
-    let avatar;if(card.photo){avatar=node("img");avatar.src=card.photo;avatar.alt="";avatar.loading="lazy";avatar.decoding="async";avatar.style.objectPosition=card.photoPosition||"center";avatar.addEventListener("error",()=>avatar.replaceWith(node("span","apply-card-avatar",initials(card))),{once:true})}else avatar=node("span","apply-card-avatar",initials(card));
+    let avatar;if(card.photo){avatar=node("span","apply-card-photo");const image=createPhotoFrameImage(card.photo,{alt:"",frame:card.photoFrame,legacyPosition:card.photoPosition,loading:"lazy",onError:()=>avatar.replaceWith(node("span","apply-card-avatar",initials(card)))});avatar.append(image)}else avatar=node("span","apply-card-avatar",initials(card));
     const identity=node("span");identity.append(node("strong","",formatPersonName(card)),node("small","",`${card.jobTitle} · ${card.department}`));
     row.append(checkbox,avatar,identity,node("span","apply-card-current",templates.get(card.template)||"Plantilla no disponible"));list.append(row);
   });
