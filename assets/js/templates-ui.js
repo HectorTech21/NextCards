@@ -1,8 +1,8 @@
-import {cardService} from "./cards.js?v=1.4.0";
-import {renderCardPreview} from "./preview.js?v=1.4.0";
-import {CORPORATE_PRESETS,templateService,validateTemplateDraft} from "./templates-store.js";
+import {cardService} from "./cards.js?v=1.7.0";
+import {renderCardPreview} from "./preview.js?v=1.7.0";
+import {CORPORATE_PRESETS,templateService,validateTemplateDraft} from "./templates-store.js?v=1.7.0";
 import {formatPersonName,formatSettingsDate} from "./settings-store.js";
-import {createPhotoFrameImage} from "./photo-frame.js?v=1.4.0";
+import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
 
 export const TEMPLATE_SAMPLE_CARD = Object.freeze({
   id: "template-preview-sample",

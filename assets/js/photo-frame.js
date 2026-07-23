@@ -1,3 +1,5 @@
+import {setPhotoImageSource} from "./photo-storage.js?v=1.6.0";
+
 export const PHOTO_FRAME_LIMITS = Object.freeze({
   x: Object.freeze({min: 0, max: 100}),
   y: Object.freeze({min: 0, max: 100}),
@@ -83,8 +85,7 @@ export function createPhotoFrameImage(src, {
   if (loading) image.loading = loading;
   if (className) image.className = className;
   applyPhotoFrame(image, frame, legacyPosition);
-  if (onLoad) image.addEventListener("load", onLoad, {once: true});
-  if (onError) image.addEventListener("error", onError, {once: true});
+  setPhotoImageSource(image, src, {onLoad, onError});
   return image;
 }
 

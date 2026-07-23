@@ -1,24 +1,33 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { constants as fsConstants } from "node:fs";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import XLSX from "xlsx";
 
 const EMPTY_VALUES = new Set(["", "n/a", "na", "null", "undefined", "-", "--"]);
 const REQUIRED_COLUMNS = ["nombre", "apellidos", "cargo", "departamento", "email", "telefono", "linkedin", "ciudad", "foto", "mostrar"];
-const REQUIRED_CARD_FIELDS = ["nombre", "apellidos", "cargo", "departamento", "email"];
 const VALID_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 const OUTPUT_DATA = "assets/data/employees.json";
 const OUTPUT_IMAGES = "assets/img/employees";
+const REPORT_JSON = "reports/add-remaining-employees-report.json";
+const REPORT_MARKDOWN = "reports/add-remaining-employees-report.md";
+const PREVIOUS_SEED_VERSION = 2;
+const NEXT_SEED_VERSION = 3;
 
 function parseArgs(argv) {
-  const result = { dryRun: false, excel: "" };
+  const result = { excel: "", mode: "" };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
-    if (value === "--dry-run") result.dryRun = true;
-    else if (value === "--excel") result.excel = argv[++index] ?? "";
-    else if (value === "--help" || value === "-h") result.help = true;
+    if (value === "--excel") result.excel = argv[++index] ?? "";
+    else if (value === "--dry-run") {
+      if (result.mode) throw new Error("Usa solo uno de --dry-run o --apply.");
+      result.mode = "dry-run";
+    } else if (value === "--apply") {
+      if (result.mode) throw new Error("Usa solo uno de --dry-run o --apply.");
+      result.mode = "apply";
+    } else if (value === "--help" || value === "-h") result.help = true;
     else throw new Error(`Argumento no reconocido: ${value}`);
   }
   return result;
@@ -34,12 +43,16 @@ function normalizeKey(value) {
   return cleanText(value).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-function slugify(value) {
-  return normalizeKey(value).replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 70);
+function normalizePerson(value) {
+  return normalizeKey(value).replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function isSelected(value) {
-  return normalizeKey(value) === "si";
+function normalizePhone(value) {
+  return cleanText(value).replace(/\D/g, "");
+}
+
+function slugify(value) {
+  return normalizeKey(value).replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 70);
 }
 
 function normalizeUrl(value) {
@@ -56,7 +69,7 @@ function normalizeUrl(value) {
 }
 
 function isValidEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  return !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 function stableId(identity) {
@@ -79,31 +92,32 @@ function duplicateGroups(rows, selector) {
 }
 
 function isValidRoleVariant(group) {
-  const people = new Set(group.map(row => normalizeKey(row.fullName)));
+  const people = new Set(group.map(row => normalizePerson(row.fullName)));
   const roles = group.map(row => normalizeKey(row.cargo));
   return people.size === 1 && roles.every(Boolean) && new Set(roles).size === group.length;
 }
 
-function isExactDuplicateGroup(group) {
-  const signatures = new Set(group.map(row => [row.fullName, row.cargo, row.email, row.telefono, row.photoPath].map(normalizeKey).join("|")));
-  return signatures.size < group.length;
+function exactSignature(row) {
+  return [row.fullName, row.cargo, row.departamento, row.email, normalizePhone(row.telefono), row.linkedin, row.ciudad, row.photoPath]
+    .map(normalizeKey)
+    .join("|");
 }
 
 function uniqueSlug(base, used) {
-  let slug = base || "empleado";
+  const safeBase = base || "empleado";
+  let slug = safeBase;
   let suffix = 2;
-  while (used.has(slug)) slug = `${base}-${suffix++}`;
+  while (used.has(slug)) slug = `${safeBase}-${suffix++}`;
   used.add(slug);
-  return slug;
+  return { slug, adjusted: slug !== safeBase };
 }
 
-function uniqueImageName(fullName, extension, used) {
-  const base = slugify(fullName) || "empleado";
-  let name = `${base}${extension}`;
-  let suffix = 2;
-  while (used.has(name.toLowerCase())) name = `${base}-${suffix++}${extension}`;
-  used.add(name.toLowerCase());
-  return name;
+function rowLabel(row) {
+  return `${row.fullName || `Fila ${row.excelRow}`} [fila ${row.excelRow}]`;
+}
+
+function groupSummary(groups) {
+  return groups.map(group => group.map(row => `${row.fullName} — ${row.cargo || "sin cargo"} [fila ${row.excelRow}]`));
 }
 
 async function loadRows(excelPath) {
@@ -117,163 +131,293 @@ async function loadRows(excelPath) {
   const missingColumns = REQUIRED_COLUMNS.filter(column => !headers.includes(column));
   if (missingColumns.length) throw new Error(`Faltan columnas obligatorias: ${missingColumns.join(", ")}`);
   const rows = values.slice(1).map((valuesRow, index) => {
-    const row = { excelRow: index + 2 };
+    const row = { excelRow: index + 2, rawValues: valuesRow };
     headers.forEach((header, columnIndex) => { row[header] = valuesRow[columnIndex]; });
     return row;
   });
-  return { rows, headers };
+  return { rows, sheetName };
+}
+
+async function loadSeed(projectRoot) {
+  const filePath = path.join(projectRoot, OUTPUT_DATA);
+  const parsed = JSON.parse(await fs.readFile(filePath, "utf8"));
+  if (!Array.isArray(parsed)) throw new Error(`${OUTPUT_DATA} no contiene una lista válida.`);
+  return parsed;
 }
 
 async function inspectPhoto(photoPath) {
-  if (!photoPath) return { exists: false, missing: false, validExtension: true };
+  if (!photoPath) return { exists: false, missing: false, validExtension: true, extension: "" };
   const extension = path.extname(photoPath).toLowerCase();
   if (!VALID_IMAGE_EXTENSIONS.has(extension)) return { exists: false, missing: false, validExtension: false, extension };
   try {
     const stats = await fs.stat(photoPath);
     if (!stats.isFile()) return { exists: false, missing: true, validExtension: true, extension };
     const metadata = await sharp(photoPath).metadata();
-    return { exists: true, missing: false, validExtension: true, extension, bytes: stats.size, width: metadata.width ?? 0, height: metadata.height ?? 0, orientation: metadata.orientation ?? 1 };
+    return {
+      exists: true,
+      missing: false,
+      validExtension: true,
+      extension,
+      bytes: stats.size,
+      width: metadata.width ?? 0,
+      height: metadata.height ?? 0,
+      orientation: metadata.orientation ?? 1,
+    };
   } catch {
     return { exists: false, missing: true, validExtension: true, extension };
   }
 }
 
-async function auditRows(rawRows) {
-  const emptyRows = rawRows.filter(row => REQUIRED_COLUMNS.every(column => !cleanText(row[column])));
-  const selectedRows = rawRows.filter(row => isSelected(row.mostrar)).map(row => {
-    const cleaned = { excelRow: row.excelRow };
-    for (const column of REQUIRED_COLUMNS) cleaned[column] = cleanText(row[column]);
-    cleaned.email = cleaned.email.toLowerCase();
-    const linkedIn = normalizeUrl(cleaned.linkedin);
-    cleaned.linkedin = linkedIn.value;
-    cleaned.urlCorrected = linkedIn.corrected;
-    cleaned.urlValid = linkedIn.valid;
-    cleaned.fullName = cleanText(`${cleaned.nombre} ${cleaned.apellidos}`);
-    cleaned.photoPath = cleaned.foto;
-    cleaned.whitespaceChanged = REQUIRED_COLUMNS.some(column => cleanText(row[column]) !== String(row[column] ?? ""));
-    return cleaned;
-  });
-
-  for (const row of selectedRows) row.photoInfo = await inspectPhoto(row.photoPath);
-
-  const repeatedNames = duplicateGroups(selectedRows, row => row.fullName);
-  const validRoleVariants = repeatedNames.filter(isValidRoleVariant);
-  const realDuplicateNames = repeatedNames.filter(group => !isValidRoleVariant(group) && isExactDuplicateGroup(group));
-  const ambiguousRepeatedNames = repeatedNames.filter(group => !isValidRoleVariant(group) && !isExactDuplicateGroup(group));
-  const variantRows = new Set(validRoleVariants.flat());
-  for (const row of selectedRows) {
-    const base = slugify(row.fullName);
-    row.proposedSlug = variantRows.has(row) ? `${base}-${slugify(row.cargo)}` : base;
-  }
-  const duplicateEmails = duplicateGroups(selectedRows, row => row.email).filter(group => !isValidRoleVariant(group));
-  const duplicateNames = realDuplicateNames;
-  const duplicatePhones = duplicateGroups(selectedRows, row => row.telefono).filter(group => !isValidRoleVariant(group));
-  const duplicatePhotos = duplicateGroups(selectedRows, row => row.photoPath).filter(group => !isValidRoleVariant(group));
-  const provisionalSlugs = duplicateGroups(selectedRows, row => row.proposedSlug);
-  const missingRequired = selectedRows.flatMap(row => REQUIRED_CARD_FIELDS.filter(field => !row[field]).map(field => ({ row: row.excelRow, employee: row.fullName || `Fila ${row.excelRow}`, field })));
-  const invalidEmails = selectedRows.filter(row => row.email && !isValidEmail(row.email));
-  const invalidUrls = selectedRows.filter(row => !row.urlValid);
-  const invalidPhotos = selectedRows.filter(row => row.photoPath && !row.photoInfo.validExtension);
-  const missingPhotos = selectedRows.filter(row => row.photoInfo.missing);
-  const withoutPhotos = selectedRows.filter(row => !row.photoPath || !row.photoInfo.exists);
-  const crossPersonPhotoDuplicates = duplicatePhotos.filter(group => new Set(group.map(row => normalizeKey(row.fullName))).size > 1);
-  const blockingErrors = [
-    ...missingRequired.map(item => `Fila ${item.row}: falta ${item.field} (${item.employee}).`),
-    ...invalidEmails.map(row => `Fila ${row.excelRow}: email inválido (${row.fullName}).`),
-    ...invalidUrls.map(row => `Fila ${row.excelRow}: URL inválida (${row.fullName}).`),
-    ...invalidPhotos.map(row => `Fila ${row.excelRow}: formato de foto no válido (${row.fullName}).`),
-    ...crossPersonPhotoDuplicates.map(group => `Una misma foto está asignada a personas distintas: ${group.map(row => `${row.fullName} [fila ${row.excelRow}]`).join(", ")}.`),
-    ...realDuplicateNames.map(group => `Duplicado real (misma persona, cargo y datos principales): ${group.map(row => `${row.fullName} — ${row.cargo} [fila ${row.excelRow}]`).join(" / ")}.`),
-    ...ambiguousRepeatedNames.map(group => `Filas repetidas no clasificables con seguridad: ${group.map(row => `${row.fullName} — ${row.cargo} [fila ${row.excelRow}]`).join(" / ")}.`),
-  ];
-
-  return { rawRows, selectedRows, emptyRows, duplicateEmails, duplicateNames, duplicatePhones, duplicatePhotos, provisionalSlugs, validRoleVariants, ambiguousRepeatedNames, missingRequired, invalidEmails, invalidUrls, invalidPhotos, missingPhotos, withoutPhotos, crossPersonPhotoDuplicates, blockingErrors };
+async function hashFile(filePath) {
+  return createHash("sha256").update(await fs.readFile(filePath)).digest("hex");
 }
 
-function describeGroups(groups) {
-  return groups.length ? groups.map(group => group.map(row => `${row.fullName} [fila ${row.excelRow}]`).join(" | ")).join("\n    ") : "ninguno";
+function cleanRows(rawRows) {
+  const emptyRows = [];
+  const omittedRows = [];
+  const cleanedRows = [];
+
+  for (const rawRow of rawRows) {
+    if (REQUIRED_COLUMNS.every(column => !cleanText(rawRow[column]))) {
+      emptyRows.push(rawRow.excelRow);
+      continue;
+    }
+    const repeatedHeader = REQUIRED_COLUMNS.every(column => normalizeKey(rawRow[column]) === column);
+    if (repeatedHeader) {
+      omittedRows.push({ row: rawRow.excelRow, reason: "cabecera repetida" });
+      continue;
+    }
+    const row = { excelRow: rawRow.excelRow };
+    for (const column of REQUIRED_COLUMNS) row[column] = cleanText(rawRow[column]);
+    row.email = row.email.toLowerCase();
+    row.fullName = cleanText(`${row.nombre} ${row.apellidos}`);
+    row.photoPath = row.foto;
+    row.whitespaceChanged = REQUIRED_COLUMNS.some(column => cleanText(rawRow[column]) !== String(rawRow[column] ?? ""));
+    const linkedIn = normalizeUrl(row.linkedin);
+    row.linkedin = linkedIn.value;
+    row.urlCorrected = linkedIn.corrected;
+    row.urlValid = linkedIn.valid;
+    if (!row.nombre || !row.apellidos) {
+      omittedRows.push({ row: row.excelRow, name: row.fullName, reason: "persona incompleta: faltan nombre o apellidos" });
+      continue;
+    }
+    cleanedRows.push(row);
+  }
+  return { cleanedRows, emptyRows, omittedRows };
 }
 
-function printSummary(audit, dryRun) {
-  const { selectedRows } = audit;
-  console.log(`\nNextCards — ${dryRun ? "DRY RUN" : "GENERACIÓN"}`);
-  console.log("=".repeat(48));
-  console.log(`Filas de datos: ${audit.rawRows.length}`);
-  console.log(`Filas vacías: ${audit.emptyRows.length}`);
-  console.log(`Filas con mostrar = SI: ${selectedRows.length}`);
-  console.log(`Tarjetas que se crearían: ${selectedRows.length}`);
-  console.log(`Personas únicas: ${new Set(selectedRows.map(row => normalizeKey(row.fullName))).size}`);
-  console.log(`Personas con varias tarjetas: ${audit.validRoleVariants.length}`);
-  console.log(`Fotos encontradas: ${selectedRows.filter(row => row.photoInfo.exists).length}`);
-  console.log(`Fotos no encontradas: ${audit.missingPhotos.length}`);
-  console.log(`Empleados sin foto utilizable: ${audit.withoutPhotos.length}`);
-  console.log(`URLs corregidas: ${selectedRows.filter(row => row.urlCorrected).length}`);
-  console.log(`Filas con espacios normalizados: ${selectedRows.filter(row => row.whitespaceChanged).length}`);
-  console.log(`Emails duplicados: ${audit.duplicateEmails.length}\n    ${describeGroups(audit.duplicateEmails)}`);
-  console.log(`Nombres duplicados: ${audit.duplicateNames.length}\n    ${describeGroups(audit.duplicateNames)}`);
-  console.log(`Teléfonos duplicados: ${audit.duplicatePhones.length}\n    ${describeGroups(audit.duplicatePhones)}`);
-  console.log(`Fotografías duplicadas: ${audit.duplicatePhotos.length}\n    ${describeGroups(audit.duplicatePhotos)}`);
-  console.log(`Slugs provisionales duplicados: ${audit.provisionalSlugs.length}\n    ${describeGroups(audit.provisionalSlugs)}`);
-  console.log(`Variantes válidas por cargo: ${audit.validRoleVariants.length}\n    ${describeGroups(audit.validRoleVariants)}`);
-  console.log(`Errores bloqueantes: ${audit.blockingErrors.length}`);
-  for (const error of audit.blockingErrors) console.log(`  ERROR: ${error}`);
-  for (const row of audit.missingPhotos) console.log(`  AVISO: foto no encontrada para ${row.fullName} [fila ${row.excelRow}].`);
-  console.log(`Archivo de datos: ${OUTPUT_DATA}`);
-  console.log(`Carpeta de imágenes: ${OUTPUT_IMAGES}`);
-  if (dryRun) {
-    console.log("\nArchivos que se copiarían:");
-    for (const row of selectedRows) console.log(`  ${row.fullName}: ${row.photoInfo.exists ? path.basename(row.photoPath) : "avatar de iniciales"}`);
-    console.log("\nDRY RUN: no se ha escrito, copiado ni eliminado ningún archivo.");
+function deduplicateExactRows(rows) {
+  const firstBySignature = new Map();
+  const duplicateMap = new Map();
+  const uniqueRows = [];
+  const omitted = [];
+  for (const row of rows) {
+    const signature = exactSignature(row);
+    const first = firstBySignature.get(signature);
+    if (!first) {
+      firstBySignature.set(signature, row);
+      uniqueRows.push(row);
+      continue;
+    }
+    const key = first.excelRow;
+    if (!duplicateMap.has(key)) duplicateMap.set(key, [first]);
+    duplicateMap.get(key).push(row);
+    omitted.push({ row: row.excelRow, name: row.fullName, reason: `duplicado exacto de la fila ${first.excelRow}` });
   }
+  return { uniqueRows, exactDuplicates: [...duplicateMap.values()], omitted };
 }
 
-async function writePhoto(source, destination, info) {
-  const needsOptimization = info.width > 800 || info.height > 800 || info.bytes > 1024 * 1024 || info.orientation > 1;
-  if (!needsOptimization) {
-    await fs.copyFile(source, destination);
-    return { optimized: false };
+function indexSeed(seed) {
+  const indexes = { email: new Map(), id: new Map(), name: new Map(), phone: new Map(), photo: new Map() };
+  const add = (map, key, card) => {
+    if (!key) return;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(card);
+  };
+  for (const card of seed) {
+    indexes.id.set(String(card.id), card);
+    add(indexes.email, normalizeKey(card.email), card);
+    add(indexes.name, normalizePerson(`${card.firstName} ${card.lastName}`), card);
+    add(indexes.phone, normalizePhone(card.phone), card);
+    add(indexes.photo, normalizeKey(path.basename(card.photo || "")), card);
   }
-  let pipeline = sharp(source).rotate().resize({ width: 800, height: 800, fit: "inside", withoutEnlargement: true });
-  if (info.extension === ".jpg" || info.extension === ".jpeg") pipeline = pipeline.jpeg({ quality: 84, mozjpeg: true });
-  else if (info.extension === ".png") pipeline = pipeline.png({ compressionLevel: 9 });
-  else pipeline = pipeline.webp({ quality: 84 });
-  await pipeline.toFile(destination);
-  return { optimized: true };
+  return indexes;
 }
 
-async function generate(audit, projectRoot) {
-  if (audit.blockingErrors.length) throw new Error("La generación se ha detenido porque existen errores bloqueantes.");
-  const usedSlugs = new Set();
-  const usedImages = new Set();
-  const photoBySource = new Map();
-  const nameCounts = new Map();
-  for (const row of audit.selectedRows) {
-    const key = normalizeKey(row.fullName);
-    nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+function narrowCandidates(candidates, row) {
+  let narrowed = [...new Map(candidates.map(card => [card.id, card])).values()];
+  const sameName = narrowed.filter(card => normalizePerson(`${card.firstName} ${card.lastName}`) === normalizePerson(row.fullName));
+  if (sameName.length) narrowed = sameName;
+  if (narrowed.length > 1 && row.cargo) {
+    const sameRole = narrowed.filter(card => normalizeKey(card.jobTitle) === normalizeKey(row.cargo));
+    if (sameRole.length) narrowed = sameRole;
   }
-  const generatedAt = new Date().toISOString();
-  const employees = [];
-  const operations = [];
+  return narrowed;
+}
 
-  for (const row of audit.selectedRows) {
-    const hasMultipleCards = (nameCounts.get(normalizeKey(row.fullName)) ?? 0) > 1;
-    const semanticBase = hasMultipleCards ? `${slugify(row.fullName)}-${slugify(row.cargo)}` : slugify(row.fullName);
-    const slug = uniqueSlug(semanticBase, usedSlugs);
-    let photo = "";
-    if (row.photoInfo.exists) {
-      const sourceKey = path.resolve(row.photoPath).toLowerCase();
-      if (photoBySource.has(sourceKey)) photo = photoBySource.get(sourceKey);
-      else {
-        const imageName = uniqueImageName(row.fullName, row.photoInfo.extension, usedImages);
-        photo = `${OUTPUT_IMAGES}/${imageName}`.replaceAll("\\", "/");
-        photoBySource.set(sourceKey, photo);
-        operations.push({ source: row.photoPath, destination: path.join(projectRoot, photo), info: row.photoInfo, employee: row.fullName });
+function matchRows(rows, seed, roleVariantRows) {
+  const indexes = indexSeed(seed);
+  const claimedIds = new Set();
+  const matches = [];
+  const newRows = [];
+  const ambiguous = [];
+  const roleVariantSet = new Set(roleVariantRows.flat());
+
+  for (const row of rows) {
+    let candidates = [];
+    let strategy = "";
+    if (row.email) {
+      candidates = narrowCandidates(indexes.email.get(normalizeKey(row.email)) ?? [], row);
+      strategy = "email";
+    }
+
+    if (!candidates.length) {
+      const semanticBase = roleVariantSet.has(row) ? `${slugify(row.fullName)}-${slugify(row.cargo)}` : slugify(row.fullName);
+      const candidateId = stableId(`${row.email || row.fullName}|${semanticBase}`);
+      const idCandidate = indexes.id.get(candidateId);
+      if (idCandidate) {
+        candidates = [idCandidate];
+        strategy = "id original";
       }
     }
-    employees.push({
-      id: stableId(`${row.email || row.fullName}|${slug}`),
+
+    if (!candidates.length) {
+      candidates = narrowCandidates(indexes.name.get(normalizePerson(row.fullName)) ?? [], row);
+      strategy = "nombre";
+    }
+
+    if (candidates.length > 1) {
+      const phoneMatches = row.telefono ? candidates.filter(card => normalizePhone(card.phone) === normalizePhone(row.telefono)) : [];
+      if (phoneMatches.length === 1) candidates = phoneMatches;
+    }
+
+    if (candidates.length > 1 && row.photoPath) {
+      const photoBase = normalizeKey(path.basename(row.photoPath));
+      const photoMatches = candidates.filter(card => normalizeKey(path.basename(card.photo || "")) === photoBase);
+      if (photoMatches.length === 1) candidates = photoMatches;
+    }
+
+    const available = candidates.filter(card => !claimedIds.has(card.id));
+    if (available.length === 1) {
+      claimedIds.add(available[0].id);
+      matches.push({ row, card: available[0], strategy });
+    } else if (available.length > 1 || (candidates.length && !available.length)) {
+      ambiguous.push({ row, candidates: candidates.map(card => ({ id: card.id, name: `${card.firstName} ${card.lastName}`, role: card.jobTitle })) });
+    } else newRows.push(row);
+  }
+  return { matches, newRows, ambiguous };
+}
+
+function compareExisting(match) {
+  const { row, card } = match;
+  const fields = [
+    ["nombre", "firstName", normalizeKey],
+    ["apellidos", "lastName", normalizeKey],
+    ["cargo", "jobTitle", normalizeKey],
+    ["departamento", "department", normalizeKey],
+    ["email", "email", normalizeKey],
+    ["telefono", "phone", normalizePhone],
+    ["linkedin", "linkedin", normalizeKey],
+    ["ciudad", "city", normalizeKey],
+  ];
+  const differences = fields.filter(([excelField, cardField, normalizer]) => normalizer(row[excelField]) !== normalizer(card[cardField])).map(([excelField]) => excelField);
+  if (row.photoInfo.exists !== Boolean(card.photo)) differences.push("foto");
+  return differences;
+}
+
+async function inspectExistingPhotos(seed, projectRoot) {
+  const relativePaths = [...new Set(seed.map(card => cleanText(card.photo)).filter(Boolean))];
+  const found = [];
+  const missing = [];
+  for (const relativePath of relativePaths) {
+    try {
+      const stats = await fs.stat(path.join(projectRoot, relativePath));
+      (stats.isFile() ? found : missing).push(relativePath);
+    } catch {
+      missing.push(relativePath);
+    }
+  }
+  return { found, missing };
+}
+
+async function planNewPhotos(rows, projectRoot, existingSeed) {
+  const outputDirectory = path.join(projectRoot, OUTPUT_IMAGES);
+  const existingNames = new Set();
+  const existingHashToPath = new Map();
+  let directoryEntries = [];
+  try { directoryEntries = await fs.readdir(outputDirectory, { withFileTypes: true }); }
+  catch (error) { if (error.code !== "ENOENT") throw error; }
+  for (const entry of directoryEntries) {
+    if (!entry.isFile()) continue;
+    const relativePath = `${OUTPUT_IMAGES}/${entry.name}`.replaceAll("\\", "/");
+    existingNames.add(entry.name.toLowerCase());
+    try { existingHashToPath.set(await hashFile(path.join(outputDirectory, entry.name)), relativePath); } catch {}
+  }
+  for (const card of existingSeed) {
+    if (card.photo) existingNames.add(path.basename(card.photo).toLowerCase());
+  }
+
+  const usedNames = new Set(existingNames);
+  const sourceToPhoto = new Map();
+  const operations = [];
+  const reused = [];
+  const photoByRow = new Map();
+
+  for (const row of rows) {
+    if (!row.photoInfo.exists) {
+      photoByRow.set(row, "");
+      continue;
+    }
+    const sourceKey = path.resolve(row.photoPath).toLowerCase();
+    if (sourceToPhoto.has(sourceKey)) {
+      const relativePath = sourceToPhoto.get(sourceKey);
+      photoByRow.set(row, relativePath);
+      reused.push({ employee: row.fullName, path: relativePath, reason: "misma fuente" });
+      continue;
+    }
+    const sourceHash = await hashFile(row.photoPath);
+    const identicalPath = existingHashToPath.get(sourceHash);
+    if (identicalPath) {
+      sourceToPhoto.set(sourceKey, identicalPath);
+      photoByRow.set(row, identicalPath);
+      reused.push({ employee: row.fullName, path: identicalPath, reason: "archivo idéntico" });
+      continue;
+    }
+
+    const base = slugify(row.fullName) || "empleado";
+    let fileName = `${base}${row.photoInfo.extension}`;
+    let suffix = 2;
+    while (usedNames.has(fileName.toLowerCase())) fileName = `${base}-${suffix++}${row.photoInfo.extension}`;
+    usedNames.add(fileName.toLowerCase());
+    const relativePath = `${OUTPUT_IMAGES}/${fileName}`.replaceAll("\\", "/");
+    sourceToPhoto.set(sourceKey, relativePath);
+    photoByRow.set(row, relativePath);
+    operations.push({ source: row.photoPath, destination: path.join(projectRoot, relativePath), relativePath, info: row.photoInfo, employee: row.fullName });
+  }
+  return { photoByRow, operations, reused };
+}
+
+function planNewCards(rows, seed, photoPlan, roleVariantGroups) {
+  const usedSlugs = new Set(seed.map(card => normalizeKey(card.slug)));
+  const usedIds = new Set(seed.map(card => String(card.id)));
+  const roleVariantSet = new Set(roleVariantGroups.flat());
+  const cards = [];
+  const slugAdjustments = [];
+  const generatedAt = new Date().toISOString();
+
+  for (const row of rows) {
+    const semanticBase = roleVariantSet.has(row) ? `${slugify(row.fullName)}-${slugify(row.cargo)}` : slugify(row.fullName);
+    const { slug, adjusted } = uniqueSlug(semanticBase, usedSlugs);
+    if (adjusted) slugAdjustments.push({ employee: row.fullName, base: semanticBase, slug });
+    let idSalt = 1;
+    let id = stableId(`${row.email || normalizePerson(row.fullName)}|${slug}`);
+    while (usedIds.has(id)) id = stableId(`${row.email || normalizePerson(row.fullName)}|${slug}|${++idSalt}`);
+    usedIds.add(id);
+    const photo = photoPlan.photoByRow.get(row) || "";
+    cards.push({
+      id,
       slug,
-      cardName: hasMultipleCards ? `${row.fullName} — ${row.cargo}` : row.fullName,
+      cardName: row.fullName,
       firstName: row.nombre,
       lastName: row.apellidos,
       jobTitle: row.cargo,
@@ -294,43 +438,260 @@ async function generate(audit, projectRoot) {
       accentColor: "#FA3C0F",
       status: "active",
       language: "es",
-      visibleFields: { phone: Boolean(row.telefono), email: Boolean(row.email), city: Boolean(row.ciudad), bio: false, linkedin: Boolean(row.linkedin), website: false },
+      visibleFields: {
+        photo: true,
+        jobTitle: Boolean(row.cargo),
+        department: Boolean(row.departamento),
+        phone: Boolean(row.telefono),
+        email: Boolean(row.email),
+        city: Boolean(row.ciudad),
+        bio: false,
+        linkedin: Boolean(row.linkedin),
+        website: false,
+      },
+      seedIntroducedVersion: NEXT_SEED_VERSION,
       createdAt: generatedAt,
       updatedAt: generatedAt,
     });
   }
+  return { cards, slugAdjustments, generatedAt };
+}
+
+async function buildAudit(rawRows, seed, projectRoot, sheetName) {
+  const cleaned = cleanRows(rawRows);
+  for (const row of cleaned.cleanedRows) row.photoInfo = await inspectPhoto(row.photoPath);
+  const deduplicated = deduplicateExactRows(cleaned.cleanedRows);
+  const validRows = deduplicated.uniqueRows;
+  const repeatedNames = duplicateGroups(validRows, row => row.fullName);
+  const roleVariants = repeatedNames.filter(isValidRoleVariant);
+  const ambiguousRepeatedNames = repeatedNames.filter(group => !isValidRoleVariant(group));
+  const duplicateEmails = duplicateGroups(validRows, row => row.email);
+  const invalidDuplicateEmails = duplicateEmails.filter(group => !isValidRoleVariant(group));
+  const duplicatePhones = duplicateGroups(validRows, row => normalizePhone(row.telefono));
+  const duplicatePhotos = duplicateGroups(validRows, row => row.photoPath);
+  const crossPersonPhotoDuplicates = duplicatePhotos.filter(group => new Set(group.map(row => normalizePerson(row.fullName))).size > 1);
+  const matching = matchRows(validRows, seed, roleVariants);
+  const unmatchedRoleVariants = roleVariants.filter(group => group.some(row => matching.newRows.includes(row) || matching.ambiguous.some(item => item.row === row)));
+  const existingPhotos = await inspectExistingPhotos(seed, projectRoot);
+  const photoPlan = await planNewPhotos(matching.newRows, projectRoot, seed);
+  const cardPlan = planNewCards(matching.newRows, seed, photoPlan, roleVariants);
+  const differences = matching.matches.map(match => ({ match, fields: compareExisting(match) })).filter(item => item.fields.length);
+  const invalidEmails = validRows.filter(row => !isValidEmail(row.email));
+  const invalidUrls = validRows.filter(row => !row.urlValid);
+  const invalidPhotos = validRows.filter(row => row.photoPath && !row.photoInfo.validExtension);
+  const missingPhotos = validRows.filter(row => !row.photoInfo.exists);
+  const blockingErrors = [
+    ...invalidEmails.map(row => `Fila ${row.excelRow}: email inválido (${row.fullName}).`),
+    ...invalidUrls.map(row => `Fila ${row.excelRow}: URL inválida (${row.fullName}).`),
+    ...invalidPhotos.map(row => `Fila ${row.excelRow}: formato de foto no válido (${row.fullName}).`),
+    ...crossPersonPhotoDuplicates.map(group => `Una misma foto está asignada a personas distintas: ${group.map(rowLabel).join(" / ")}.`),
+    ...invalidDuplicateEmails.map(group => `Email compartido sin una variante de cargo inequívoca: ${group.map(rowLabel).join(" / ")}.`),
+    ...ambiguousRepeatedNames.map(group => `Nombre repetido no clasificable con seguridad: ${group.map(rowLabel).join(" / ")}.`),
+    ...matching.ambiguous.map(item => `Coincidencia ambigua para ${rowLabel(item.row)}: ${item.candidates.length} tarjetas candidatas.`),
+    ...unmatchedRoleVariants.map(group => `Nueva persona con varios cargos pendiente de decisión: ${group.map(rowLabel).join(" / ")}.`),
+  ];
+
+  const mostrarSi = validRows.filter(row => normalizeKey(row.mostrar) === "si").length;
+  const mostrarNo = validRows.filter(row => normalizeKey(row.mostrar) === "no").length;
+  const mostrarVacio = validRows.filter(row => !normalizeKey(row.mostrar)).length;
+  const report = {
+    reportVersion: 1,
+    generatedAt: cardPlan.generatedAt,
+    sheet: sheetName,
+    summary: {
+      excelRows: rawRows.length,
+      emptyRows: cleaned.emptyRows.length,
+      validPeopleRows: validRows.length,
+      mostrarSi,
+      mostrarNo,
+      mostrarVacio,
+      seedCardsBefore: seed.length,
+      existingMatches: matching.matches.length,
+      newCards: cardPlan.cards.length,
+      finalSeedCards: seed.length + cardPlan.cards.length,
+      uniquePeople: new Set(validRows.map(row => normalizePerson(row.fullName))).size,
+      exactDuplicates: deduplicated.exactDuplicates.length,
+      ambiguousMatches: matching.ambiguous.length,
+      roleVariantPeople: roleVariants.length,
+      photosFound: validRows.filter(row => row.photoInfo.exists).length,
+      photosMissing: missingPhotos.length,
+      existingPhotoFiles: existingPhotos.found.length,
+      newPhotosToCopy: photoPlan.operations.length,
+      photosToReuse: photoPlan.reused.length,
+      correctedUrls: validRows.filter(row => row.urlCorrected).length,
+      differencesNotApplied: differences.length,
+      blockingErrors: blockingErrors.length,
+    },
+    seed: { previousVersion: PREVIOUS_SEED_VERSION, nextVersion: NEXT_SEED_VERSION },
+    matches: matching.matches.map(({ row, card, strategy }) => ({ row: row.excelRow, employee: row.fullName, cardId: card.id, strategy, differences: compareExisting({ row, card }) })),
+    additions: cardPlan.cards.map((card, index) => ({ row: matching.newRows[index].excelRow, employee: matching.newRows[index].fullName, id: card.id, slug: card.slug, photo: card.photo || "avatar de iniciales" })),
+    duplicates: {
+      exact: groupSummary(deduplicated.exactDuplicates),
+      roleVariants: groupSummary(roleVariants),
+      emails: groupSummary(duplicateEmails),
+      phones: groupSummary(duplicatePhones),
+      photos: groupSummary(duplicatePhotos),
+    },
+    conflicts: {
+      blocking: blockingErrors,
+      ambiguousMatches: matching.ambiguous.map(item => ({ row: item.row.excelRow, employee: item.row.fullName, candidates: item.candidates })),
+      slugAdjustments: cardPlan.slugAdjustments,
+    },
+    photos: {
+      withoutPhoto: missingPhotos.map(row => ({ row: row.excelRow, employee: row.fullName })),
+      alreadyCopied: existingPhotos.found,
+      missingFromRepository: existingPhotos.missing,
+      toCopy: photoPlan.operations.map(item => ({ employee: item.employee, path: item.relativePath })),
+      reused: photoPlan.reused,
+    },
+    corrections: {
+      urls: validRows.filter(row => row.urlCorrected).map(row => ({ row: row.excelRow, employee: row.fullName })),
+      whitespace: validRows.filter(row => row.whitespaceChanged).map(row => ({ row: row.excelRow, employee: row.fullName })),
+    },
+    differencesNotApplied: differences.map(({ match, fields }) => ({ row: match.row.excelRow, employee: match.row.fullName, cardId: match.card.id, fields })),
+    omittedRows: [...cleaned.omittedRows, ...deduplicated.omitted],
+  };
+  return { report, validRows, matching, photoPlan, cardPlan, blockingErrors };
+}
+
+function printSummary(audit, mode) {
+  const { summary } = audit.report;
+  console.log(`\nNextCards — ${mode === "dry-run" ? "DRY RUN" : "APLICACIÓN INCREMENTAL"}`);
+  console.log("=".repeat(58));
+  console.log(`Filas del Excel: ${summary.excelRows}`);
+  console.log(`Personas válidas: ${summary.validPeopleRows}`);
+  console.log(`mostrar = SI: ${summary.mostrarSi}`);
+  console.log(`mostrar = NO: ${summary.mostrarNo}`);
+  console.log(`mostrar vacío: ${summary.mostrarVacio}`);
+  console.log(`Tarjetas actuales en el seed: ${summary.seedCardsBefore}`);
+  console.log(`Personas ya existentes: ${summary.existingMatches}`);
+  console.log(`Nuevas tarjetas: ${summary.newCards}`);
+  console.log(`Total final previsto: ${summary.finalSeedCards}`);
+  console.log(`Coincidencias por email: ${audit.report.matches.filter(item => item.strategy === "email").length}`);
+  console.log(`Coincidencias por ID original: ${audit.report.matches.filter(item => item.strategy === "id original").length}`);
+  console.log(`Coincidencias por nombre: ${audit.report.matches.filter(item => item.strategy === "nombre").length}`);
+  console.log(`Coincidencias ambiguas: ${summary.ambiguousMatches}`);
+  console.log(`Duplicados exactos: ${summary.exactDuplicates}`);
+  console.log(`Personas con varios cargos: ${summary.roleVariantPeople}`);
+  console.log(`Fotos encontradas: ${summary.photosFound}`);
+  console.log(`Personas sin foto: ${summary.photosMissing}`);
+  console.log(`Fotos ya copiadas: ${summary.existingPhotoFiles}`);
+  console.log(`Nuevas fotos que se copiarían: ${summary.newPhotosToCopy}`);
+  console.log(`Fotos que se reutilizarían: ${summary.photosToReuse}`);
+  console.log(`URLs corregidas: ${summary.correctedUrls}`);
+  console.log(`Diferencias no aplicadas: ${summary.differencesNotApplied}`);
+  console.log(`Registros omitidos: ${audit.report.omittedRows.length}`);
+  console.log(`Conflictos de slug: ${audit.report.conflicts.slugAdjustments.length}`);
+  console.log(`Errores bloqueantes: ${summary.blockingErrors}`);
+
+  console.log("\nNuevas tarjetas:");
+  for (const card of audit.report.additions) console.log(`  ${card.employee} → ${card.slug}${card.photo === "avatar de iniciales" ? " (sin foto)" : ""}`);
+  console.log("\nDiferencias detectadas en tarjetas existentes (no se aplicarán):");
+  if (!audit.report.differencesNotApplied.length) console.log("  ninguna");
+  for (const difference of audit.report.differencesNotApplied) console.log(`  ${difference.employee}: ${difference.fields.join(", ")}`);
+  if (audit.report.conflicts.blocking.length) {
+    console.log("\nConflictos bloqueantes:");
+    for (const error of audit.report.conflicts.blocking) console.log(`  ERROR: ${error}`);
+  }
+  if (mode === "dry-run") console.log("\nDRY RUN: no se ha escrito, copiado, eliminado ni versionado ningún archivo.");
+}
+
+async function writePhoto(operation) {
+  try {
+    await fs.access(operation.destination);
+    throw new Error(`El destino ya existe y no se sobrescribirá: ${operation.relativePath}`);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  const needsOptimization = operation.info.width > 800 || operation.info.height > 800 || operation.info.bytes > 500_000 || operation.info.orientation > 1;
+  if (!needsOptimization) {
+    await fs.copyFile(operation.source, operation.destination, fsConstants.COPYFILE_EXCL);
+    return { optimized: false };
+  }
+  let pipeline = sharp(operation.source).rotate().resize({ width: 800, height: 800, fit: "inside", withoutEnlargement: true });
+  if (operation.info.extension === ".jpg" || operation.info.extension === ".jpeg") pipeline = pipeline.jpeg({ quality: 84, mozjpeg: true });
+  else if (operation.info.extension === ".png") pipeline = pipeline.png({ compressionLevel: 9, palette: true, quality: 84 });
+  else pipeline = pipeline.webp({ quality: 84 });
+  await pipeline.toFile(operation.destination);
+  return { optimized: true };
+}
+
+function markdownReport(report, applied) {
+  const lines = [
+    "# Ampliación de empleados de NextCards",
+    "",
+    `- Estado: ${applied ? "aplicado" : "dry-run"}`,
+    `- Filas del Excel: ${report.summary.excelRows}`,
+    `- Personas válidas: ${report.summary.validPeopleRows}`,
+    `- Tarjetas existentes: ${report.summary.existingMatches}`,
+    `- Tarjetas nuevas: ${report.summary.newCards}`,
+    `- Total final: ${report.summary.finalSeedCards}`,
+    `- Errores bloqueantes: ${report.summary.blockingErrors}`,
+    "",
+    "## Nuevas tarjetas",
+    "",
+    ...(report.additions.length ? report.additions.map(item => `- ${item.employee}: \`${item.slug}\` — ${item.photo}`) : ["- Ninguna."]),
+    "",
+    "## Diferencias no aplicadas",
+    "",
+    ...(report.differencesNotApplied.length ? report.differencesNotApplied.map(item => `- ${item.employee}: ${item.fields.join(", ")}`) : ["- Ninguna."]),
+    "",
+    "## Personas sin foto",
+    "",
+    ...(report.photos.withoutPhoto.length ? report.photos.withoutPhoto.map(item => `- ${item.employee}`) : ["- Ninguna."]),
+    "",
+  ];
+  return `${lines.join("\n")}\n`;
+}
+
+async function applyAudit(audit, seed, projectRoot) {
+  if (audit.blockingErrors.length) throw new Error("La ampliación se ha detenido porque existen conflictos bloqueantes.");
+  const finalSeed = [...seed, ...audit.cardPlan.cards];
+  const ids = new Set(finalSeed.map(card => card.id));
+  const slugs = new Set(finalSeed.map(card => normalizeKey(card.slug)));
+  if (ids.size !== finalSeed.length) throw new Error("La ampliación produciría IDs duplicados.");
+  if (slugs.size !== finalSeed.length) throw new Error("La ampliación produciría slugs duplicados.");
 
   await fs.mkdir(path.join(projectRoot, OUTPUT_IMAGES), { recursive: true });
-  await fs.mkdir(path.join(projectRoot, path.dirname(OUTPUT_DATA)), { recursive: true });
   let optimized = 0;
-  for (const operation of operations) {
-    const result = await writePhoto(operation.source, operation.destination, operation.info);
+  for (const operation of audit.photoPlan.operations) {
+    const result = await writePhoto(operation);
     if (result.optimized) optimized += 1;
   }
-  await fs.writeFile(path.join(projectRoot, OUTPUT_DATA), `${JSON.stringify(employees, null, 2)}\n`, "utf8");
-  return { employees, operations, optimized };
+  if (audit.cardPlan.cards.length) await fs.writeFile(path.join(projectRoot, OUTPUT_DATA), `${JSON.stringify(finalSeed, null, 2)}\n`, "utf8");
+  await fs.mkdir(path.join(projectRoot, "reports"), { recursive: true });
+  const appliedReport = { ...audit.report, applied: true, appliedAt: new Date().toISOString() };
+  await fs.writeFile(path.join(projectRoot, REPORT_JSON), `${JSON.stringify(appliedReport, null, 2)}\n`, "utf8");
+  await fs.writeFile(path.join(projectRoot, REPORT_MARKDOWN), markdownReport(appliedReport, true), "utf8");
+  return { finalSeed, optimized };
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
-    console.log("Uso: node scripts/generate-initial-employees.mjs --excel <archivo.xlsx> [--dry-run]");
+    console.log("Uso: node scripts/generate-initial-employees.mjs --excel <archivo.xlsx> (--dry-run | --apply)");
     return;
   }
   if (!args.excel) throw new Error("Debes indicar --excel <archivo.xlsx>.");
+  if (!args.mode) throw new Error("Debes indicar --dry-run o --apply.");
+  const projectRoot = process.cwd();
   const excelPath = path.resolve(args.excel);
   await fs.access(excelPath);
-  const { rows } = await loadRows(excelPath);
-  const audit = await auditRows(rows);
-  printSummary(audit, args.dryRun);
-  if (args.dryRun) {
+  const seed = await loadSeed(projectRoot);
+  const { rows, sheetName } = await loadRows(excelPath);
+  const audit = await buildAudit(rows, seed, projectRoot, sheetName);
+  printSummary(audit, args.mode);
+  if (args.mode === "dry-run") {
     if (audit.blockingErrors.length) process.exitCode = 2;
     return;
   }
-  const result = await generate(audit, process.cwd());
-  console.log(`\nTarjetas generadas: ${result.employees.length}`);
-  console.log(`Imágenes copiadas: ${result.operations.length}`);
+  const result = await applyAudit(audit, seed, projectRoot);
+  console.log(`\nTarjetas nuevas añadidas: ${audit.cardPlan.cards.length}`);
+  console.log(`Tarjetas finales en el seed: ${result.finalSeed.length}`);
+  console.log(`Imágenes copiadas: ${audit.photoPlan.operations.length}`);
   console.log(`Imágenes optimizadas: ${result.optimized}`);
+  console.log(`Informe JSON: ${REPORT_JSON}`);
+  console.log(`Informe Markdown: ${REPORT_MARKDOWN}`);
 }
 
 main().catch(error => {

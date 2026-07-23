@@ -1,5 +1,5 @@
-import {INITIAL_DATA_VERSION, SEED_VERSION_KEY, STORAGE_KEY, storage} from "./storage.js?v=1.4.0";
-import {TEMPLATES_DATA_VERSION, TEMPLATES_STORAGE_KEY, TEMPLATES_VERSION_KEY, templateService} from "./templates-store.js";
+import {DELETED_SEED_IDS_KEY, INITIAL_DATA_VERSION, SEED_VERSION_KEY, STORAGE_KEY, storage} from "./storage.js?v=1.6.0";
+import {TEMPLATES_DATA_VERSION, TEMPLATES_STORAGE_KEY, TEMPLATES_VERSION_KEY, templateService} from "./templates-store.js?v=1.7.0";
 import {ANALYTICS_EVENTS_KEY, ANALYTICS_SCHEMA_KEY, ANALYTICS_SCHEMA_VERSION} from "./analytics-store.js";
 import {
   NEXTCARDS_VERSION,
@@ -7,14 +7,16 @@ import {
   SETTINGS_STORAGE_KEY,
   settingsService,
   validateSettings,
-} from "./settings-store.js?v=1.4.0";
-import {isValidPhotoFrame,normalizeCardPhotoFrame} from "./photo-frame.js?v=1.4.0";
+} from "./settings-store.js?v=1.6.0";
+import {isValidPhotoFrame,normalizeCardPhotoFrame} from "./photo-frame.js?v=1.6.0";
+import {PHOTO_DB_NAME,PHOTO_SCHEMA_VERSION,canRenderPhoto,clearAllPhotos,isIndexedDbPhoto,pruneUnusedPhotos} from "./photo-storage.js?v=1.6.0";
 
 export const BACKUP_FORMAT = "nextcards-backup";
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 export const NEXTCARDS_LOCAL_STORAGE_KEYS = Object.freeze([
   STORAGE_KEY,
   SEED_VERSION_KEY,
+  DELETED_SEED_IDS_KEY,
   TEMPLATES_STORAGE_KEY,
   TEMPLATES_VERSION_KEY,
   SETTINGS_STORAGE_KEY,
@@ -70,8 +72,15 @@ export function buildBackup() {
       settings: SETTINGS_SCHEMA_VERSION,
     },
     cards: storage.getCards(),
+    deletedSeedIds: storage.getDeletedSeedIds(),
     customTemplates: templateService.getTemplates().filter(item => item.type === "custom"),
     settings: settingsService.getSettings(),
+    photoStorage: {
+      schemaVersion: PHOTO_SCHEMA_VERSION,
+      database: PHOTO_DB_NAME,
+      included: false,
+      note: "Las fotografías subidas manualmente se almacenan en IndexedDB y no se incluyen en esta copia JSON.",
+    },
   };
 }
 
@@ -91,6 +100,8 @@ export function validateBackup(value) {
   if (Number(backup.settings?.version || 0) > SETTINGS_SCHEMA_VERSION) throw problem("La configuración incluida pertenece a una versión más reciente.", "INCOMPATIBLE_DATA_VERSION");
   if (!Array.isArray(backup.cards) || !backup.cards.every(validCard)) throw problem("La copia contiene tarjetas incompletas o no válidas.", "INVALID_CARDS");
   backup.cards = backup.cards.map(card => normalizeCardPhotoFrame(card));
+  if (backup.deletedSeedIds !== undefined && (!Array.isArray(backup.deletedSeedIds) || backup.deletedSeedIds.some(id => typeof id !== "string"))) throw problem("El registro de tarjetas eliminadas no es válido.", "INVALID_DELETED_SEED_IDS");
+  backup.deletedSeedIds = [...new Set(backup.deletedSeedIds || [])];
   if (!Array.isArray(backup.customTemplates) || !backup.customTemplates.every(template => template && template.type === "custom" && template.id && template.name)) {
     throw problem("La lista de plantillas personalizadas no es válida.", "INVALID_TEMPLATES");
   }
@@ -121,6 +132,7 @@ export function validateBackup(value) {
       appName: String(backup.settings.general?.appName || "NextCards"),
       exportedAt: backup.exportedAt || "",
       sourceVersion: backup.appVersion || "desconocida",
+      manualPhotosNotIncluded: backup.cards.filter(card => isIndexedDbPhoto(card)).length,
     },
   };
 }
@@ -151,8 +163,10 @@ export function importBackup(value, {mode = "replace"} = {}) {
   const before = snapshot();
   try {
     const cards = mode === "replace" ? clone(backup.cards) : mergedCards(storage.getCards(), backup.cards);
+    const deletedSeedIds = mode === "replace" ? backup.deletedSeedIds : [...new Set([...storage.getDeletedSeedIds(), ...backup.deletedSeedIds])];
     templateService.importCustomTemplates(backup.customTemplates, {mode});
     storage.saveCards(cards);
+    storage.replaceDeletedSeedIds(deletedSeedIds);
     globalThis.localStorage?.setItem(SEED_VERSION_KEY, String(INITIAL_DATA_VERSION));
     const savedSettings = settingsService.saveSettings(backup.settings);
     const requestedDefault = templateService.getTemplateById(savedSettings.cards.defaultTemplateId);
@@ -161,6 +175,7 @@ export function importBackup(value, {mode = "replace"} = {}) {
       const fallback = templateService.getDefaultTemplate();
       settingsService.syncDefaultTemplate(fallback.id);
     }
+    if (globalThis.indexedDB) void pruneUnusedPhotos(cards).catch(error => console.warn("No se pudieron limpiar fotografías sin referencia tras la importación.", error));
     return {...summary, mode, resultingCards: cards.length, importedAt: stamp()};
   } catch (error) {
     rollback(before);
@@ -197,7 +212,8 @@ function clearKnownKeys() {
   globalThis.sessionStorage?.removeItem("nextcards_analytics_session_id");
 }
 
-export function restoreInitialNextCardsData() {
+export async function restoreInitialNextCardsData() {
+  await clearAllPhotos();
   clearKnownKeys();
   const cards = storage.restoreInitialData();
   const templates = templateService.resetForTests();
@@ -205,10 +221,12 @@ export function restoreInitialNextCardsData() {
   return {cards: cards.length, templates: templates.length, settings};
 }
 
-export function eraseAllNextCardsData() {
+export async function eraseAllNextCardsData() {
+  await clearAllPhotos();
   clearKnownKeys();
   globalThis.localStorage?.setItem(STORAGE_KEY, "[]");
   globalThis.localStorage?.setItem(SEED_VERSION_KEY, String(INITIAL_DATA_VERSION));
+  storage.markAllSeedDeleted();
   const templates = templateService.resetForTests();
   const settings = settingsService.resetSettings();
   return {cards: 0, templates: templates.length, settings};
@@ -275,20 +293,15 @@ function isValidHttpUrl(value) {
 
 function structuralPhotoIssue(photo) {
   if (!photo) return "";
+  if (/^indexeddb:[^\s]+$/i.test(photo)) return "";
   if (/^data:image\/(?:png|jpeg|webp);base64,/i.test(photo)) return photo.length > 1_400_000 ? "La fotografía embebida supera aproximadamente 1 MB." : "";
   if (/^assets\/img\/employees\/[a-z0-9-]+\.(?:jpe?g|png|webp)$/i.test(photo)) return "";
   return "La ruta de fotografía no es relativa, compatible o reconocible.";
 }
 
 async function canLoadPhoto(photo) {
-  if (!photo || typeof Image === "undefined") return true;
-  return new Promise(resolve => {
-    const image = new Image();
-    const timeout = setTimeout(() => resolve(false), 2500);
-    image.onload = () => { clearTimeout(timeout); resolve(true); };
-    image.onerror = () => { clearTimeout(timeout); resolve(false); };
-    image.src = photo;
-  });
+  if (!photo) return true;
+  return canRenderPhoto(photo);
 }
 
 export async function checkDataIntegrity({cards = storage.getCards(), templates = templateService.getTemplates(), checkPhotos = true} = {}) {

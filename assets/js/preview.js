@@ -1,7 +1,7 @@
-import {templateService,readableTextColor} from "./templates-store.js";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.4.0";
+import {templateService,readableTextColor} from "./templates-store.js?v=1.7.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.6.0";
 import {renderActionGrid} from "./card-actions.js?v=1.2.0";
-import {createPhotoFrameImage} from "./photo-frame.js?v=1.4.0";
+import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
 
 function el(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node}
 function initials(card){return `${card.firstName?.[0]||""}${card.lastName?.[0]||""}`.toUpperCase()}

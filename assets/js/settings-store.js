@@ -1,6 +1,6 @@
 export const SETTINGS_STORAGE_KEY = "nextcards.settings.v1";
 export const SETTINGS_SCHEMA_VERSION = 1;
-export const NEXTCARDS_VERSION = "1.4.0";
+export const NEXTCARDS_VERSION = "1.7.0";
 
 export const LOGO_RESOURCES = Object.freeze({
   "symbol-negative": {label: "Símbolo", path: "assets/img/logos/lognext-symbol-negative.svg"},

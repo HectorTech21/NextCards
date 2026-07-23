@@ -1,5 +1,5 @@
-import {renderCardPreview} from "./preview.js?v=1.4.0";
-import {templateService} from "./templates-store.js";
+import {renderCardPreview} from "./preview.js?v=1.7.0";
+import {templateService} from "./templates-store.js?v=1.7.0";
 import {
   CARD_ACTIONS,
   LOGO_RESOURCES,
@@ -9,7 +9,7 @@ import {
   getDefaultSettings,
   settingsService,
   validateSettings,
-} from "./settings-store.js?v=1.4.0";
+} from "./settings-store.js?v=1.6.0";
 import {
   buildCardsCsv,
   buildTechnicalSummary,
@@ -20,7 +20,8 @@ import {
   restoreInitialNextCardsData,
   serializeBackup,
   validateBackup,
-} from "./settings-data.js?v=1.4.0";
+} from "./settings-data.js?v=1.7.0";
+import {getPhotoStorageUsage} from "./photo-storage.js?v=1.6.0";
 
 const SAMPLE_CARD = Object.freeze({
   id: "settings-preview-sample",
@@ -461,7 +462,7 @@ function openDanger(action) {
   openModal("#settings-confirm-modal");
 }
 
-function runDanger() {
+async function runDanger() {
   if (!pendingDanger) return;
   const input = document.querySelector("#settings-confirm-input");
   if (input.value.trim() !== pendingDanger.word) {
@@ -469,12 +470,12 @@ function runDanger() {
     input.focus();
     return;
   }
-  const result = pendingDanger.action === "restore" ? restoreInitialNextCardsData() : eraseAllNextCardsData();
-  const label = pendingDanger.action === "restore" ? "Datos iniciales restaurados" : "Datos de NextCards borrados";
-  pendingDanger = null;
-  closeModal("#settings-confirm-modal");
-  reloadState();
-  callbacks.showToast?.(`${label}. ${result.cards} tarjetas disponibles.`);
+  const submit=document.querySelector("#settings-confirm-submit");submit.disabled=true;
+  try{
+    const result = pendingDanger.action === "restore" ? await restoreInitialNextCardsData() : await eraseAllNextCardsData();
+    const label = pendingDanger.action === "restore" ? "Datos iniciales restaurados" : "Datos de NextCards borrados";
+    pendingDanger = null;closeModal("#settings-confirm-modal");reloadState();callbacks.showToast?.(`${label}. ${result.cards} tarjetas disponibles.`);
+  }catch(error){callbacks.showToast?.(`No se pudo completar la operación: ${error.message}`,"error");submit.disabled=false}
 }
 
 function bytes(value) {
@@ -483,7 +484,7 @@ function bytes(value) {
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function renderSystemInformation() {
+async function renderSystemInformation() {
   const list = document.querySelector("#settings-system-list");
   if (!list || !draft) return;
   let info;
@@ -492,6 +493,7 @@ function renderSystemInformation() {
     list.replaceChildren(node("div", "", `No se pudo leer la información: ${error.message}`));
     return;
   }
+  let photoUsage={count:0,bytes:0};try{photoUsage=await getPhotoStorageUsage()}catch{}
   const rows = [
     ["Versión de NextCards", info.appVersion],
     ["Esquema de configuración", info.settingsVersion],
@@ -502,6 +504,7 @@ function renderSystemInformation() {
     ["Tarjetas", `${info.cards} · ${info.activeCards} activas · ${info.draftCards} borradores`],
     ["Plantillas", info.templates],
     ["Almacenamiento aproximado", bytes(info.storageBytes)],
+    ["Fotografías locales", `${photoUsage.count} · ${bytes(photoUsage.bytes)}`],
     ["Última actualización", formatSettingsDate(info.lastLocalUpdate, draft)],
     ["Navegador", info.browser],
   ];
@@ -547,7 +550,7 @@ async function writeClipboard(value) {
 function handleSettingsAction(action) {
   if (action === "export-backup") {
     download(serializeBackup(), `nextcards-backup-${new Date().toISOString().slice(0, 10)}.json`, "application/json");
-    callbacks.showToast?.("Copia de seguridad exportada.");
+    callbacks.showToast?.("Copia exportada. Las fotografías manuales de IndexedDB no están incluidas.");
   }
   if (action === "choose-backup") document.querySelector("#settings-import-file").click();
   if (action === "export-csv") {

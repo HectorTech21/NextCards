@@ -4,3 +4,4 @@ node_modules/
 carga_inicial.xlsx
 *.xlsx
 !assets/**/*.xlsx
+reports/

@@ -8,13 +8,13 @@
   <title>NextCards · Digital cards by Lognext</title>
   <link rel="icon" href="assets/img/logos/lognext-symbol-positive.svg">
   <link rel="stylesheet" href="assets/css/variables.css?v=1.2.0">
-  <link rel="stylesheet" href="assets/css/global.css?v=1.2.0">
+  <link rel="stylesheet" href="assets/css/global.css?v=1.3.0">
   <link rel="stylesheet" href="assets/css/card-actions.css?v=1.2.0">
-  <link rel="stylesheet" href="assets/css/dashboard.css?v=1.2.0">
+  <link rel="stylesheet" href="assets/css/dashboard.css?v=1.5.0">
   <link rel="stylesheet" href="assets/css/quick-view.css?v=1.3.1">
-  <link rel="stylesheet" href="assets/css/editor.css?v=1.2.0">
+  <link rel="stylesheet" href="assets/css/editor.css?v=1.6.2">
   <link rel="stylesheet" href="assets/css/photo-frame.css?v=1.4.0">
-  <link rel="stylesheet" href="assets/css/templates.css?v=1.2.0">
+  <link rel="stylesheet" href="assets/css/templates.css?v=1.3.0">
   <link rel="stylesheet" href="assets/css/analytics.css?v=1.2.0">
   <link rel="stylesheet" href="assets/css/settings.css?v=1.2.0">
 </head>
@@ -100,16 +100,22 @@
                   <option value="disabled">Desactivada</option>
                 </select>
               </label>
-              <button class="button button-secondary" id="data-menu-button" type="button" aria-expanded="false"><span data-icon="database"></span>Datos<span data-icon="chevron"></span></button>
-              <div class="popover" id="data-menu" hidden>
-                <button type="button" data-action="export"><span data-icon="download"></span>Exportar JSON</button>
-                <button type="button" data-action="import"><span data-icon="upload"></span>Importar JSON</button>
-                <button type="button" data-action="restore"><span data-icon="refresh"></span>Restaurar datos iniciales</button>
+              <div class="data-menu-wrap">
+                <button class="button button-secondary" id="data-menu-button" type="button" aria-expanded="false"><span data-icon="database"></span>Datos<span data-icon="chevron"></span></button>
+                <div class="popover" id="data-menu" hidden>
+                  <button type="button" data-action="export"><span data-icon="download"></span>Exportar JSON</button>
+                  <button type="button" data-action="import"><span data-icon="upload"></span>Importar JSON</button>
+                  <button type="button" data-action="restore"><span data-icon="refresh"></span>Restaurar datos iniciales</button>
+                </div>
+                <input id="import-file" type="file" accept="application/json,.json" hidden>
               </div>
-              <input id="import-file" type="file" accept="application/json,.json" hidden>
+              <div class="view-switch" role="group" aria-label="Modo de visualización">
+                <button id="cards-view-grid" type="button" data-action="set-cards-view" data-view-mode="grid" aria-pressed="true" title="Vista cuadrícula"><span data-icon="gridView"></span><span class="view-switch-label">Cuadrícula</span></button>
+                <button id="cards-view-list" type="button" data-action="set-cards-view" data-view-mode="list" aria-pressed="false" title="Vista lista"><span data-icon="listView"></span><span class="view-switch-label">Lista</span></button>
+              </div>
             </div>
           </div>
-          <div class="card-grid" id="card-grid" aria-live="polite"></div>
+          <div class="card-grid cards-directory" id="card-grid" aria-live="polite" aria-label="Tarjetas en vista cuadrícula"></div>
           <div class="empty-state" id="empty-state" hidden>
             <span class="empty-icon"><span data-icon="search"></span></span>
             <h3>No hay tarjetas que coincidan</h3>
@@ -142,7 +148,7 @@
           </section>
 
           <section class="templates-panel">
-            <div class="templates-panel-heading"><div><h2>Diseños disponibles</h2><p id="template-results-label">9 plantillas</p></div></div>
+            <div class="templates-panel-heading"><div><h2>Diseños disponibles</h2><p id="template-results-label">10 plantillas</p></div></div>
             <div class="no-custom-templates" id="no-custom-templates" hidden>
               <span class="no-custom-icon"><span data-icon="edit"></span></span>
               <div><strong>Sin plantillas personalizadas</strong><p>Crea una variante controlada a partir de cualquiera de los diseños del sistema.</p></div>
@@ -357,7 +363,7 @@
 
               <section class="settings-panel" id="settings-data" role="tabpanel" aria-labelledby="settings-tab-data" data-settings-panel="data" hidden>
                 <header><span class="settings-section-icon"><span data-icon="database"></span></span><div><h2>Datos y copias</h2><p>Crea una copia portable o reinicializa solo los datos de NextCards.</p></div></header>
-                <div class="settings-card settings-data-card"><div><span class="settings-data-icon"><span data-icon="download"></span></span><div><h3>Copia de seguridad JSON</h3><p>Incluye tarjetas, plantillas personalizadas, configuración, versiones y fecha de exportación. No incluye analítica.</p></div></div><button class="button button-secondary" type="button" data-settings-action="export-backup">Exportar copia</button></div>
+                <div class="settings-card settings-data-card"><div><span class="settings-data-icon"><span data-icon="download"></span></span><div><h3>Copia de seguridad JSON</h3><p>Incluye tarjetas, plantillas personalizadas, configuración, versiones y fecha de exportación. No incluye analítica ni los archivos binarios de fotografías manuales guardados en IndexedDB.</p></div></div><button class="button button-secondary" type="button" data-settings-action="export-backup">Exportar copia</button></div>
                 <div class="settings-card settings-data-card"><div><span class="settings-data-icon"><span data-icon="upload"></span></span><div><h3>Importar copia</h3><p>El archivo se valida antes de ofrecer reemplazar o fusionar. Si falla, se revierte el cambio completo.</p></div></div><button class="button button-secondary" type="button" data-settings-action="choose-backup">Seleccionar JSON</button><input id="settings-import-file" type="file" accept="application/json,.json" hidden></div>
                 <div class="settings-card settings-data-card"><div><span class="settings-data-icon"><span data-icon="download"></span></span><div><h3>Listado CSV</h3><p>Exporta una tabla UTF-8 de las tarjetas actuales para revisión administrativa.</p></div></div><button class="button button-secondary" type="button" data-settings-action="export-csv">Exportar CSV</button></div>
                 <div class="settings-card settings-danger-card"><div><h3>Restaurar datos iniciales</h3><p>Sustituye tarjetas, plantillas, configuración y analítica de NextCards. No borra otras claves del navegador.</p></div><button class="button button-danger" type="button" data-settings-danger="restore">Restaurar</button></div>
@@ -492,7 +498,7 @@
             <div class="section-heading"><span>01</span><div><h3>Datos personales</h3><p>Información principal del empleado.</p></div></div>
             <div class="photo-field">
               <div class="photo-preview" id="photo-preview"><span data-icon="user"></span></div>
-              <div class="photo-field-copy"><label class="button button-secondary" for="photo-input"><span data-icon="image"></span>Subir fotografía</label><input id="photo-input" name="photoFile" type="file" accept="image/png,image/jpeg,image/webp" hidden><p>PNG, JPG o WebP. Máximo 1 MB.</p><p class="photo-editor-warning" id="photo-editor-warning" role="status" hidden></p><div class="photo-tools"><button class="button button-secondary" type="button" data-action="adjust-photo-frame" id="adjust-photo-frame-button" hidden><span data-icon="image"></span>Ajustar encuadre</button><button class="text-button danger" type="button" data-action="remove-photo" id="remove-photo-button" hidden>Eliminar foto</button></div></div>
+              <div class="photo-field-copy"><label class="button button-secondary" id="photo-upload-label" for="photo-input" role="button" tabindex="0"><span data-icon="image"></span>Subir fotografía</label><input id="photo-input" name="photoFile" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,.jpg,.jpeg,.png,.webp" aria-describedby="photo-input-help photo-editor-status photo-editor-info photo-editor-warning" hidden><p id="photo-input-help">JPG, PNG o WebP. Hasta 10 MB; se optimiza antes de guardar.</p><p class="photo-editor-status" id="photo-editor-status" role="status" aria-live="polite" hidden></p><p class="photo-editor-info" id="photo-editor-info" aria-live="polite" hidden></p><p class="photo-editor-warning" id="photo-editor-warning" role="alert" aria-live="assertive" hidden></p><div class="photo-tools"><button class="button button-secondary" type="button" data-action="adjust-photo-frame" id="adjust-photo-frame-button" hidden><span data-icon="image"></span>Ajustar encuadre</button><button class="text-button danger" type="button" data-action="remove-photo" id="remove-photo-button" hidden>Eliminar foto</button></div></div>
             </div>
             <div class="form-grid">
               <label>Nombre <span>*</span><input name="firstName" required maxlength="60" autocomplete="given-name"><small class="field-error"></small></label>
@@ -698,6 +704,6 @@
 
   <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
   <script src="assets/js/vendor/qrcode-generator.js?v=1.3.1"></script>
-  <script type="module" src="assets/js/app.js?v=1.4.0"></script>
+  <script type="module" src="assets/js/app.js?v=1.7.0"></script>
 </body>
 </html>

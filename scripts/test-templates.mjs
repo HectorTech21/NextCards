@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 
-const seed = JSON.parse(await fs.readFile(new URL("../assets/data/employees.json", import.meta.url), "utf8"));
+const [seedSource, globalCss, editorSource, editorCss] = await Promise.all([
+  fs.readFile(new URL("../assets/data/employees.json", import.meta.url), "utf8"),
+  fs.readFile(new URL("../assets/css/global.css", import.meta.url), "utf8"),
+  fs.readFile(new URL("../assets/js/editor.js", import.meta.url), "utf8"),
+  fs.readFile(new URL("../assets/css/editor.css", import.meta.url), "utf8"),
+]);
+const seed = JSON.parse(seedSource);
 
 class LocalStorageMock {
   #values = new Map();
@@ -28,6 +34,7 @@ const {storage} = await import("../assets/js/storage.js");
 const systems = templateService.getSystemTemplates();
 const expectedSystemIds = [
   "corporate-navy",
+  "corporate-solid-navy",
   "clean-light",
   "meaningful-tech",
   "executive-lines",
@@ -37,10 +44,12 @@ const expectedSystemIds = [
   "minimal-corporate",
   "premium-dark",
 ];
-const newSystemIds = expectedSystemIds.slice(3);
+const legacySystemIds = ["corporate-navy", "clean-light", "meaningful-tech"];
+const newSystemIds = expectedSystemIds.filter(id => !legacySystemIds.includes(id));
 const brandColors = new Set(["#000029", "#FA3C0F", "#FFFFFF", "#E1E1E8", "#FFFA96", "#64F07D", "#3CE6E6", "#3791F5", "#C896FF"]);
-assert.deepEqual(systems.map(item => item.id), expectedSystemIds, "Deben existir las nueve plantillas del sistema con IDs estables.");
-assert.equal(templateService.getTemplates().length, 9, "La inicialización debe crear las nueve plantillas del sistema.");
+assert.deepEqual(systems.map(item => item.id), expectedSystemIds, "Deben existir las diez plantillas del sistema con IDs estables.");
+assert.equal(templateService.getTemplates().length, 10, "La inicialización debe crear las diez plantillas del sistema.");
+assert.equal(TEMPLATES_DATA_VERSION, 3, "La nueva plantilla debe activar la migración no destructiva del catálogo.");
 assert.equal(templateService.getDefaultTemplate().id, "corporate-navy", "Corporate Navy debe ser la predeterminada inicial.");
 assert.equal(templateService.getTemplates().filter(item => item.isDefault).length, 1, "Debe existir una única plantilla predeterminada.");
 assert.equal(localStorage.getItem(TEMPLATES_VERSION_KEY), String(TEMPLATES_DATA_VERSION), "Debe persistirse la versión del catálogo.");
@@ -55,6 +64,38 @@ for (const id of newSystemIds) {
   }
 }
 
+const solidNavy = templateService.getTemplateById("corporate-solid-navy");
+assert.equal(solidNavy.name, "Corporate Solid Navy");
+assert.equal(solidNavy.description, "Diseño clásico corporativo con fondo azul marino sólido y composición centrada.");
+assert.deepEqual(
+  {
+    backgroundColor: solidNavy.theme.backgroundColor,
+    backgroundPattern: solidNavy.theme.backgroundPattern,
+    logoPosition: solidNavy.theme.logoPosition,
+    photoShape: solidNavy.theme.photoShape,
+    photoSize: solidNavy.theme.photoSize,
+    contentOrder: solidNavy.theme.contentOrder,
+  },
+  {
+    backgroundColor: "#000029",
+    backgroundPattern: "none",
+    logoPosition: "center",
+    photoShape: "circle",
+    photoSize: "large",
+    contentOrder: "identity-contact-social",
+  },
+  "Corporate Solid Navy debe conservar la composición centrada y el fondo sólido.",
+);
+const solidNavyCss = globalCss
+  .split(/\r?\n/)
+  .filter(line => line.includes("template-corporate-solid-navy"))
+  .join("\n");
+assert.match(solidNavyCss, /\.card-pattern\{display:none\}/, "La plantilla debe ocultar cualquier patrón decorativo.");
+assert.match(solidNavyCss, /align-items:center;text-align:center/, "La composición debe permanecer centrada.");
+assert.doesNotMatch(solidNavyCss, /gradient|background-image|repeating-/i, "La variante no debe introducir degradados ni tramas.");
+assert.match(editorSource, /baseId==="corporate-solid-navy"\)return "solid"/, "El selector del editor debe representar la variante sólida.");
+assert.match(editorCss, /\.template-swatch\.solid::after\{display:none\}/, "La miniatura del editor no debe dibujar diagonales.");
+
 const legacyCustom = {
   id: "custom-legado",
   name: "Plantilla legada",
@@ -63,24 +104,29 @@ const legacyCustom = {
   baseTemplateId: "clean-light",
   status: "active",
   isDefault: true,
-  theme: {...systems[1].theme, accentColor: "#C896FF"},
+  theme: {...templateService.getTemplateById("clean-light").theme, accentColor: "#C896FF"},
   createdAt: "2026-07-16T00:00:00.000Z",
   updatedAt: "2026-07-16T00:00:00.000Z",
 };
 localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify([
-  ...systems.slice(0, 3).map(item => ({...item, isDefault: false})),
+  ...legacySystemIds.map(id => ({...templateService.getTemplateById(id), isDefault: false})),
   legacyCustom,
 ]));
 localStorage.setItem(TEMPLATES_VERSION_KEY, "1");
 const migratedCatalog = templateService.getTemplates();
-assert.equal(migratedCatalog.length, 10, "La migración debe añadir seis sistemas sin perder la variante legada.");
+assert.equal(migratedCatalog.length, 11, "La migración debe añadir siete sistemas sin perder la variante legada.");
 assert.ok(newSystemIds.every(id => migratedCatalog.some(item => item.id === id)), "La migración debe incorporar todas las plantillas nuevas.");
 assert.equal(templateService.getTemplateById(legacyCustom.id).theme.accentColor, "#C896FF", "La migración debe conservar las personalizaciones.");
 assert.equal(templateService.getDefaultTemplate().id, legacyCustom.id, "La migración debe conservar la predeterminada elegida por el usuario.");
 assert.equal(localStorage.getItem(TEMPLATES_VERSION_KEY), String(TEMPLATES_DATA_VERSION));
 localStorage.removeItem(TEMPLATES_STORAGE_KEY);
 localStorage.removeItem(TEMPLATES_VERSION_KEY);
-assert.equal(templateService.getTemplates().length, 9, "La reinicialización limpia debe recuperar los nueve diseños del sistema.");
+assert.equal(templateService.getTemplates().length, 10, "La reinicialización limpia debe recuperar los diez diseños del sistema.");
+
+templateService.setDefaultTemplate("corporate-solid-navy");
+assert.equal(templateService.getDefaultTemplate().id, "corporate-solid-navy", "Corporate Solid Navy debe poder ser predeterminada.");
+assert.equal(emptyCard().template, "corporate-solid-navy", "Una tarjeta nueva debe heredar la nueva predeterminada.");
+templateService.setDefaultTemplate("corporate-navy");
 
 const automaticVariant = templateService.createVariant("corporate-navy");
 const secondAutomaticVariant = templateService.createVariant("corporate-navy");
@@ -89,7 +135,7 @@ templateService.deleteTemplate(automaticVariant.id);
 templateService.deleteTemplate(secondAutomaticVariant.id);
 
 const persistedReload = await import(`../assets/js/templates-store.js?reload=${Date.now()}`);
-assert.equal(persistedReload.templateService.getTemplates().length, 9, "Una segunda carga no debe duplicar las plantillas del sistema.");
+assert.equal(persistedReload.templateService.getTemplates().length, 10, "Una segunda carga no debe duplicar las plantillas del sistema.");
 
 const variant = templateService.createVariant("clean-light", {
   name: "Clean Light · Dirección",
@@ -100,7 +146,7 @@ assert.match(variant.id, /^custom-clean-light-direccion/, "Las variantes deben r
 assert.equal(variant.type, "custom");
 assert.equal(variant.baseTemplateId, "clean-light");
 assert.equal(variant.theme.accentColor, "#3791F5");
-assert.equal(templateService.getTemplates().length, 10);
+assert.equal(templateService.getTemplates().length, 11);
 assert.ok(JSON.parse(localStorage.getItem(TEMPLATES_STORAGE_KEY)).some(item => item.id === variant.id), "La variante debe persistir en localStorage.");
 assert.doesNotMatch(localStorage.getItem(TEMPLATES_STORAGE_KEY), /undefined|<style|javascript:/i, "El catálogo serializado no debe aceptar CSS o código arbitrario.");
 localStorage.setItem(TEMPLATES_VERSION_KEY, "0");
@@ -144,12 +190,12 @@ assert.throws(() => templateService.duplicateTemplate("corporate-navy"), problem
 const franciscoCards = seed.filter(card => card.email === "javier.pedraza@lognext.com");
 assert.equal(franciscoCards.length, 2, "La misma persona puede conservar dos tarjetas diferenciadas por ID.");
 assert.notEqual(franciscoCards[0].id, franciscoCards[1].id);
-const individualTemplateResult = templateService.applyTemplateToCards("executive-lines", [franciscoCards[0].id]);
+const individualTemplateResult = templateService.applyTemplateToCards("corporate-solid-navy", [franciscoCards[0].id]);
 assert.deepEqual(individualTemplateResult, {updated: 1, skipped: 0, errors: []});
 const cardsAfterIndividualApply = storage.getCards();
-assert.equal(cardsAfterIndividualApply.find(card => card.id === franciscoCards[0].id).template, "executive-lines", "El cambio individual debe persistir por ID de tarjeta.");
+assert.equal(cardsAfterIndividualApply.find(card => card.id === franciscoCards[0].id).template, "corporate-solid-navy", "El cambio individual debe persistir por ID de tarjeta.");
 assert.equal(cardsAfterIndividualApply.find(card => card.id === franciscoCards[1].id).template, "corporate-navy", "Compartir email no puede aplicar la plantilla a otra tarjeta.");
-assert.deepEqual(templateService.getCardsUsingTemplate("executive-lines").map(card => card.id), [franciscoCards[0].id]);
+assert.deepEqual(templateService.getCardsUsingTemplate("corporate-solid-navy").map(card => card.id), [franciscoCards[0].id]);
 templateService.applyTemplateToCards("corporate-navy", [franciscoCards[0].id]);
 
 const beforeApply = seed.slice(0, 2).map(card => structuredClone(card));
@@ -195,8 +241,8 @@ templateService.restoreTemplate(defaultVariant.id);
 templateService.deleteTemplate(defaultVariant.id);
 
 const finalCatalog = templateService.getTemplates();
-assert.equal(finalCatalog.length, 9, "El catálogo final de prueba debe volver a sus nueve diseños del sistema.");
+assert.equal(finalCatalog.length, 10, "El catálogo final de prueba debe volver a sus diez diseños del sistema.");
 assert.equal(new Set(finalCatalog.map(item => item.id)).size, finalCatalog.length, "Los IDs de plantilla deben ser únicos.");
 assert.equal(finalCatalog.filter(item => item.isDefault).length, 1);
 
-console.log("OK: nueve sistemas, migración, persistencia, variantes, edición, duplicado, archivo, borrado, predeterminada, fallback y aplicación individual segura verificados.");
+console.log("OK: diez sistemas, Corporate Solid Navy, migración, persistencia, variantes, edición, duplicado, archivo, borrado, predeterminada, fallback y aplicación individual segura verificados.");

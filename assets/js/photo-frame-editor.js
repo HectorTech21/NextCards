@@ -5,7 +5,8 @@ import {
   coverGeometry,
   dragPhotoFrame,
   normalizePhotoFrame,
-} from "./photo-frame.js?v=1.4.0";
+} from "./photo-frame.js?v=1.6.0";
+import {releasePhotoImage,setPhotoImageSource} from "./photo-storage.js?v=1.6.0";
 
 const focusableSelector = 'button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])';
 const byId = id => document.getElementById(id);
@@ -157,6 +158,7 @@ function close({applied = false} = {}) {
     callbacks.onPreview({...savedFrame});
     callbacks.onCancel({...savedFrame});
   }
+  releasePhotoImage(image);
   image.removeAttribute("src");
   if (previousFocus?.isConnected) previousFocus.focus();
   previousFocus = null;
@@ -240,7 +242,7 @@ export function openPhotoFrameEditor({src, frame, shape = "circle", opener = doc
   applyPhotoFrame(image, draftFrame);
   modal.hidden = false;
   editorOverlay?.setAttribute("inert", "");
-  image.src = src;
+  setPhotoImageSource(image, src);
   renderDraft({emit: false});
   requestAnimationFrame(() => dialog.focus());
   return true;

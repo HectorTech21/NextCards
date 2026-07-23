@@ -1,10 +1,24 @@
-import {cardService,emptyCard,normalizeSlug,sanitizePhone,isValidHttpUrl} from "./cards.js?v=1.4.0";
-import {renderCardPreview} from "./preview.js?v=1.4.0";
-import {templateService} from "./templates-store.js";
+import {cardService,createCardId,emptyCard,normalizeSlug,sanitizePhone,isValidHttpUrl} from "./cards.js?v=1.7.0";
+import {storage} from "./storage.js?v=1.6.0";
+import {renderCardPreview} from "./preview.js?v=1.7.0";
+import {templateService} from "./templates-store.js?v=1.7.0";
 import {getSourcedPublicCardUrl} from "./card-export.js";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.4.0";
-import {DEFAULT_PHOTO_FRAME,createPhotoFrameImage,normalizePhotoFrame} from "./photo-frame.js?v=1.4.0";
-import {closePhotoFrameEditor,isPhotoFrameEditorOpen,openPhotoFrameEditor,setupPhotoFrameEditor} from "./photo-frame-editor.js?v=1.4.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.6.0";
+import {DEFAULT_PHOTO_FRAME,createPhotoFrameImage,normalizePhotoFrame} from "./photo-frame.js?v=1.6.0";
+import {closePhotoFrameEditor,isPhotoFrameEditorOpen,openPhotoFrameEditor,setupPhotoFrameEditor} from "./photo-frame-editor.js?v=1.6.0";
+import {
+  canRenderPhoto,
+  deletePhoto,
+  deletePhotoIfUnused,
+  getPhoto,
+  getPhotoErrorMessage,
+  getPhotoId,
+  isPhotoStorageQuotaError,
+  photoOptimizationSummary,
+  processPhotoFile,
+  savePhoto,
+  verifyPhotoBlob,
+} from "./photo-storage.js?v=1.6.0";
 
 const overlay=document.querySelector("#editor-overlay");
 const dialog=document.querySelector(".editor-dialog");
@@ -17,10 +31,20 @@ const photoPreview=document.querySelector("#photo-preview");
 const removePhotoButton=document.querySelector("#remove-photo-button");
 const adjustPhotoFrameButton=document.querySelector("#adjust-photo-frame-button");
 const photoEditorWarning=document.querySelector("#photo-editor-warning");
+const photoEditorStatus=document.querySelector("#photo-editor-status");
+const photoEditorInfo=document.querySelector("#photo-editor-info");
+const photoUploadLabel=document.querySelector("#photo-upload-label");
 const focusableSelector='button:not([disabled]),[href],input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 let currentPhoto="";
+let currentPhotoStorage="";
+let currentPhotoId="";
+let currentPhotoSchemaVersion=null;
 let currentPhotoFrame={...DEFAULT_PHOTO_FRAME};
 let temporaryPhotoFrame=null;
+let pendingPhoto=null;
+let photoProcessing=false;
+let saveInProgress=false;
+let photoProcessToken=0;
 let autoSlug=true;
 let autoCardName=true;
 let editorDirty=false;
@@ -33,6 +57,7 @@ const node=(tag,className,text)=>{const element=document.createElement(tag);if(c
 
 function swatchClass(template){
   const baseId=template.type==="system"?template.id:template.baseTemplateId;
+  if(baseId==="corporate-solid-navy")return "solid";
   if(["clean-light","orange-pulse","talent-focus","minimal-corporate"].includes(baseId))return baseId==="orange-pulse"?"light pulse":baseId==="talent-focus"?"light focus":"light";
   if(["meaningful-tech","blue-grid"].includes(baseId))return baseId==="blue-grid"?"tech grid":"tech";
   if(baseId==="executive-lines")return "executive";
@@ -83,9 +108,14 @@ function assign(name,value){
   else field.value=value??"";
 }
 
-function formData({photoFrame=temporaryPhotoFrame||currentPhotoFrame}={}){
+function previewPhotoSource(){return pendingPhoto?.previewUrl||currentPhoto}
+
+function formData({photoFrame=temporaryPhotoFrame||currentPhotoFrame,forPersistence=false}={}){
   const data=Object.fromEntries(new FormData(form).entries());
-  data.photo=currentPhoto;
+  data.photo=forPersistence?currentPhoto:previewPhotoSource();
+  data.photoStorage=forPersistence?currentPhotoStorage:"";
+  data.photoId=forPersistence?currentPhotoId:"";
+  data.photoSchemaVersion=forPersistence?currentPhotoSchemaVersion:null;
   data.photoFrame=normalizePhotoFrame(photoFrame);
   data.phone=sanitizePhone(data.phone);data.mobile=sanitizePhone(data.mobile);
   data.visibleFields={
@@ -107,15 +137,40 @@ function renderPhotoPlaceholder(){
 
 function setPhotoWarning(message=""){
   photoEditorWarning.textContent=message;photoEditorWarning.hidden=!message;
+  form.elements.photoFile.setAttribute("aria-invalid",String(Boolean(message)));
+}
+
+function setPhotoStatus(message="",tone="neutral"){
+  photoEditorStatus.textContent=message;photoEditorStatus.hidden=!message;photoEditorStatus.dataset.tone=tone;
+}
+
+function setPhotoInfo(message=""){
+  photoEditorInfo.textContent=message;photoEditorInfo.hidden=!message;
+}
+
+function releasePendingPhoto(){
+  if(!pendingPhoto)return;
+  if(pendingPhoto.previewUrl)URL.revokeObjectURL(pendingPhoto.previewUrl);
+  pendingPhoto=null;
+}
+
+function setEditorBusy(value,{processing=false}={}){
+  saveInProgress=value&&!processing;
+  photoProcessing=value&&processing;
+  form.elements.photoFile.disabled=value;
+  photoUploadLabel.classList.toggle("is-disabled",value);photoUploadLabel.setAttribute("aria-disabled",String(value));
+  dialog.querySelectorAll('[data-action="save-draft"],button[type="submit"][form="card-form"]').forEach(button=>button.disabled=value);
+  overlay.setAttribute("aria-busy",String(value));
 }
 
 function updatePhoto({photoFrame=temporaryPhotoFrame||currentPhotoFrame}={}){
   photoPreview.replaceChildren();
-  if(currentPhoto){
-    const img=createPhotoFrameImage(currentPhoto,{alt:"Vista previa de la fotografía",frame:photoFrame,onLoad:()=>setPhotoWarning(),onError:()=>{renderPhotoPlaceholder();setPhotoWarning("No se ha podido cargar la fotografía. Puedes eliminarla o seleccionar otro archivo.")}});photoPreview.append(img);
+  const source=previewPhotoSource();
+  if(source){
+    const img=createPhotoFrameImage(source,{alt:"Vista previa de la fotografía",frame:photoFrame,onLoad:()=>setPhotoWarning(),onError:()=>{renderPhotoPlaceholder();setPhotoWarning("No se ha podido cargar la fotografía. Puedes eliminarla o seleccionar otro archivo.")}});photoPreview.append(img);
   }else{renderPhotoPlaceholder();setPhotoWarning()}
-  removePhotoButton.hidden=!currentPhoto;
-  adjustPhotoFrameButton.hidden=!currentPhoto;
+  removePhotoButton.hidden=!source;
+  adjustPhotoFrameButton.hidden=!source;
 }
 
 function updateCharacterCounts(){
@@ -199,12 +254,14 @@ function suggestedCardName(){
 }
 
 function populate(card){
-  editorSettings=settingsService.getSettings();form.reset();clearErrors();const merged={...emptyCard(),...card};merged.photoFrame=normalizePhotoFrame(card?.photoFrame,card?.photoPosition);
+  photoProcessToken+=1;releasePendingPhoto();setEditorBusy(false);editorSettings=settingsService.getSettings();form.reset();clearErrors();const merged={...emptyCard(),...card};merged.photoFrame=normalizePhotoFrame(card?.photoFrame,card?.photoPosition);
   const selectedTemplate=renderTemplatePicker(merged.template);merged.template=selectedTemplate.id;merged.accentColor=merged.accentColor||selectedTemplate.theme.accentColor;
   ensureAccentOption(merged.accentColor);
   Object.entries(merged).forEach(([key,value])=>{if(!["visibleFields","photo","photoFrame","photoPosition"].includes(key))assign(key,value)});
   Object.entries(merged.visibleFields||{}).forEach(([key,value])=>assign(`visible_${key}`,value));
-  currentPhoto=merged.photo||"";currentPhotoFrame=normalizePhotoFrame(merged.photoFrame);temporaryPhotoFrame=null;autoSlug=!merged.id&&editorSettings.cards.slug.autoGenerate;autoCardName=!merged.id;
+  currentPhoto=merged.photo||"";currentPhotoId=getPhotoId(merged);currentPhotoStorage=currentPhotoId?"indexeddb":"";currentPhotoSchemaVersion=currentPhotoId?Number(merged.photoSchemaVersion||1):null;
+  currentPhotoFrame=normalizePhotoFrame(merged.photoFrame);temporaryPhotoFrame=null;autoSlug=!merged.id&&editorSettings.cards.slug.autoGenerate;autoCardName=!merged.id;
+  form.elements.photoFile.value="";setPhotoWarning();setPhotoStatus();setPhotoInfo();
   form.elements.slug.readOnly=!editorSettings.cards.slug.allowManualEdit;form.elements.slug.setAttribute("aria-readonly",String(form.elements.slug.readOnly));
   form.elements.slug.pattern=editorSettings.cards.slug.lowercase?"[a-z0-9]+(?:-[a-z0-9]+)*":"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*";
   updatePhoto();refreshPreview({markDirty:false});
@@ -221,6 +278,22 @@ function trapEditorFocus(event){
   const first=focusable[0],last=focusable.at(-1);
   if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
   else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
+}
+
+async function handlePhotoSelection(file,input){
+  if(!file||photoProcessing)return;
+  const token=++photoProcessToken;setPhotoWarning();setPhotoStatus("Procesando imagen…","processing");setEditorBusy(true,{processing:true});
+  try{
+    const processed=await processPhotoFile(file);if(token!==photoProcessToken)return;
+    const previewUrl=URL.createObjectURL(processed.blob);releasePendingPhoto();pendingPhoto={...processed,previewUrl,fileName:file.name};
+    currentPhotoFrame={...DEFAULT_PHOTO_FRAME};temporaryPhotoFrame=null;setPhotoWarning();setPhotoStatus("Imagen procesada · pendiente de guardar","success");setPhotoInfo(photoOptimizationSummary(processed.info));
+    updatePhoto();refreshPreview({message:"Fotografía preparada · sin guardar"});
+  }catch(error){
+    if(token!==photoProcessToken)return;
+    const message=getPhotoErrorMessage(error);setPhotoWarning(message);setPhotoStatus(message,"error");toast(message,"error");input.value="";
+  }finally{
+    if(token===photoProcessToken)setEditorBusy(false);
+  }
 }
 
 export function setupEditor({onChange,showToast}={}){
@@ -240,6 +313,7 @@ export function setupEditor({onChange,showToast}={}){
     refreshPreview();
   });
   form.addEventListener("change",event=>{
+    if(event.target===form.elements.photoFile)return;
     if(event.target.name==="template"){
       const template=templateService.getTemplateById(event.target.value);
       if(template){const accent=ensureAccentOption(template.theme.accentColor);accent.checked=true}
@@ -251,24 +325,20 @@ export function setupEditor({onChange,showToast}={}){
     const name=event.target.name;if(!name||!["firstName","lastName","jobTitle","department","cardName","slug","email","website","linkedin","customLink"].includes(name))return;
     if(event.target.value||event.target.required)validateField(name);
   });
-  form.addEventListener("submit",event=>{event.preventDefault();save("active")});
-  form.elements.photoFile.addEventListener("change",event=>{
-    const file=event.target.files[0];if(!file)return;
-    if(file.size>1024*1024){toast("La imagen supera 1 MB.","error");event.target.value="";return}
-    if(!["image/jpeg","image/png","image/webp"].includes(file.type)){toast("Formato de imagen no permitido. Usa PNG, JPG o WebP.","error");event.target.value="";return}
-    const reader=new FileReader();reader.onload=()=>{currentPhoto=reader.result;currentPhotoFrame={...DEFAULT_PHOTO_FRAME};temporaryPhotoFrame=null;updatePhoto();refreshPreview({message:"Fotografía nueva · encuadre centrado"})};reader.onerror=()=>toast("No se ha podido leer la imagen.","error");reader.readAsDataURL(file);
-  });
+  form.addEventListener("submit",event=>{event.preventDefault();void save("active")});
+  form.elements.photoFile.addEventListener("change",event=>{const file=event.target.files[0];if(file)void handlePhotoSelection(file,event.target)});
+  photoUploadLabel.addEventListener("keydown",event=>{if(!photoProcessing&&!saveInProgress&&["Enter"," "].includes(event.key)){event.preventDefault();form.elements.photoFile.click()}});
   dialog.addEventListener("click",event=>{
     const action=event.target.closest("[data-action]")?.dataset.action;
     if(action==="close-editor")closeEditor();
-    if(action==="save-draft")save("draft");
+    if(action==="save-draft")void save("draft");
     if(action==="adjust-photo-frame"){
       const template=templateService.resolveTemplate(form.elements.template.value,{warn:false});
-      openPhotoFrameEditor({src:currentPhoto,frame:currentPhotoFrame,shape:template.theme.photoShape,opener:adjustPhotoFrameButton});
+      openPhotoFrameEditor({src:previewPhotoSource(),frame:currentPhotoFrame,shape:template.theme.photoShape,opener:adjustPhotoFrameButton});
     }
-    if(action==="remove-photo"){currentPhoto="";currentPhotoFrame={...DEFAULT_PHOTO_FRAME};temporaryPhotoFrame=null;form.elements.photoFile.value="";updatePhoto();refreshPreview()}
+    if(action==="remove-photo"){photoProcessToken+=1;releasePendingPhoto();currentPhoto="";currentPhotoStorage="";currentPhotoId="";currentPhotoSchemaVersion=null;currentPhotoFrame={...DEFAULT_PHOTO_FRAME};temporaryPhotoFrame=null;form.elements.photoFile.value="";setPhotoWarning();setPhotoInfo();setPhotoStatus("Fotografía eliminada · pendiente de guardar","neutral");updatePhoto();refreshPreview()}
     if(action==="regenerate-slug"){autoSlug=true;form.elements.slug.value=suggestedSlug();clearFieldError("slug");refreshPreview({message:"Slug regenerado · sin guardar"});form.elements.slug.focus()}
-    if(action==="delete-current")removeCurrent();
+    if(action==="delete-current")void removeCurrent();
     if(action==="open-current-public")openPublic();
   });
   document.querySelectorAll("[data-editor-tab]").forEach(button=>button.addEventListener("click",()=>{
@@ -284,20 +354,45 @@ export function setupEditor({onChange,showToast}={}){
   window.addEventListener("beforeunload",event=>{if(editorDirty&&!overlay.hidden){event.preventDefault();event.returnValue=""}});
 }
 
-function save(forcedStatus){
-  const data=formData();if(forcedStatus==="draft")data.status="draft";
+async function save(forcedStatus){
+  if(photoProcessing){toast("Espera a que termine el procesamiento de la imagen.","error");return}
+  if(saveInProgress)return;
+  const data=formData({forPersistence:true});if(forcedStatus==="draft")data.status="draft";
   if(!validate(data)){toast("Revisa los campos marcados.","error");form.querySelector(".invalid")?.focus();return}
+  const existingId=form.elements.id.value;const isExisting=Boolean(existingId);const cardsBefore=cardService.all();const beforeCard=isExisting?cardService.get(existingId):null;
+  const hadPendingPhoto=Boolean(pendingPhoto);let storedPhoto=null;let cardWasSaved=false;setEditorBusy(true);indicator.textContent=hadPendingPhoto?"Guardando imagen…":"Guardando…";
   try{
-    const saved=data.id?cardService.update(data.id,data):cardService.create(data);
+    if(hadPendingPhoto){
+      setPhotoStatus("Guardando imagen…","processing");const cardId=existingId||createCardId();
+      storedPhoto=await savePhoto(cardId,pendingPhoto.blob,{metadata:pendingPhoto.info});const storedRecord=await getPhoto(storedPhoto.photoId);
+      if(!storedRecord?.blob)throw Object.assign(new Error("No se pudo confirmar la fotografía guardada."),{code:"PHOTO_STORAGE_FAILED"});
+      await verifyPhotoBlob(storedRecord.blob);Object.assign(data,storedPhoto,{id:cardId});
+    }
+    const saved=isExisting?cardService.update(existingId,data):cardService.create(data);cardWasSaved=true;
+    if(hadPendingPhoto&&!(await canRenderPhoto(saved)))throw Object.assign(new Error("No se pudo guardar la imagen"),{code:"PHOTO_RENDER_FAILED"});
+
+    currentPhoto=saved.photo||"";currentPhotoId=getPhotoId(saved);currentPhotoStorage=currentPhotoId?"indexeddb":"";currentPhotoSchemaVersion=currentPhotoId?Number(saved.photoSchemaVersion||1):null;
     currentPhotoFrame=normalizePhotoFrame(saved.photoFrame);temporaryPhotoFrame=null;assign("id",saved.id);dangerZone.hidden=false;setDirty(false);indicator.textContent="Guardado ahora";autoSlug=false;autoCardName=false;
     title.textContent=`Editar · ${formatPersonName(saved,editorSettings)}`;
-    toast(forcedStatus==="draft"?"Borrador guardado.":"Tarjeta guardada.","success");onSaved(saved);
-  }catch(error){toast("No se ha podido guardar la tarjeta. Revisa los datos e inténtalo de nuevo.","error");console.error("Error al guardar la tarjeta",error)}
+    const optimization=pendingPhoto?.info;releasePendingPhoto();updatePhoto();refreshPreview({markDirty:false});onSaved(saved);
+
+    const previousPhotoId=getPhotoId(beforeCard);if(previousPhotoId&&previousPhotoId!==currentPhotoId){
+      try{await deletePhotoIfUnused(beforeCard,cardService.all())}catch(error){console.warn("No se pudo limpiar la fotografía reemplazada.",error)}
+    }
+    if(hadPendingPhoto){setPhotoStatus("Imagen actualizada","success");setPhotoInfo(photoOptimizationSummary(optimization));toast("Imagen actualizada","success")}
+    else if(beforeCard?.photo&&!saved.photo){setPhotoStatus("Fotografía eliminada","success");setPhotoInfo();toast("Fotografía eliminada y tarjeta guardada.","success")}
+    else toast(forcedStatus==="draft"?"Borrador guardado.":"Tarjeta guardada.","success");
+  }catch(error){
+    if(cardWasSaved){try{storage.saveCards(cardsBefore)}catch(rollbackError){console.error("No se pudo revertir la tarjeta tras el fallo de imagen.",rollbackError)}}
+    if(storedPhoto){try{await deletePhoto(storedPhoto.photoId)}catch(cleanupError){console.warn("No se pudo limpiar una fotografía no confirmada.",cleanupError)}}
+    const message=hadPendingPhoto||isPhotoStorageQuotaError(error)?getPhotoErrorMessage(error):"No se pudo guardar la tarjeta. Revisa los datos e inténtalo de nuevo.";
+    setPhotoStatus(message,"error");setPhotoWarning(message);indicator.textContent="Cambios sin guardar";toast(message,"error");console.error("Error al guardar la tarjeta",error);
+  }finally{setEditorBusy(false)}
 }
 
-function removeCurrent(){
+async function removeCurrent(){
   const id=form.elements.id.value;if(!id)return;
-  if(confirm("¿Eliminar esta tarjeta definitivamente?")){cardService.remove(id);setDirty(false);toast("Tarjeta eliminada.","success");onSaved();closeEditor(true)}
+  if(confirm("¿Eliminar esta tarjeta definitivamente?")){try{await cardService.remove(id);setDirty(false);toast("Tarjeta eliminada.","success");onSaved();closeEditor(true)}catch(error){toast("No se pudo eliminar la tarjeta y su fotografía.","error");console.error("Error al eliminar la tarjeta",error)}}
 }
 
 function openPublic(){
@@ -320,11 +415,12 @@ export function openEditor(id="",{focusTemplate=false}={}){
 
 export function closeEditor(force=false){
   if(isPhotoFrameEditorOpen())closePhotoFrameEditor();
+  if(saveInProgress){toast("Espera a que termine el guardado.","error");return false}
   if(!force&&editorDirty&&!confirm("Hay cambios sin guardar. ¿Quieres salir y descartarlos?"))return false;
-  overlay.hidden=true;document.body.style.overflow="";editorDirty=false;
+  photoProcessToken+=1;releasePendingPhoto();setEditorBusy(false);form.elements.photoFile.value="";overlay.hidden=true;document.body.style.overflow="";editorDirty=false;
   if(previousEditorFocus?.isConnected)previousEditorFocus.focus();previousEditorFocus=null;return true;
 }
 
-export function deleteFromDashboard(id){
-  if(confirm("¿Eliminar esta tarjeta definitivamente?")){cardService.remove(id);toast("Tarjeta eliminada.","success");onSaved()}
+export async function deleteFromDashboard(id){
+  if(confirm("¿Eliminar esta tarjeta definitivamente?")){try{await cardService.remove(id);toast("Tarjeta eliminada.","success");onSaved()}catch(error){toast("No se pudo eliminar la tarjeta y su fotografía.","error");console.error("Error al eliminar la tarjeta",error)}}
 }

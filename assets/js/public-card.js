@@ -1,11 +1,12 @@
-import {cardService} from "./cards.js?v=1.4.0";
-import {renderCardPreview} from "./preview.js?v=1.4.0";
+import {cardService} from "./cards.js?v=1.7.0";
+import {renderCardPreview} from "./preview.js?v=1.7.0";
 import {buildVcard,getPublicCardUrl,getSourcedPublicCardUrl,getVcardFilename} from "./card-export.js";
 import {copyText,shareCard} from "./card-sharing.js?v=1.3.1";
 import {renderQr} from "./qr-code.js?v=1.3.1";
 import {getAccessContext,safeTrackEvent,trackPublicCardView} from "./analytics.js";
-import {applySettingsToDocument,formatPersonName,settingsService} from "./settings-store.js?v=1.4.0";
+import {applySettingsToDocument,formatPersonName,settingsService} from "./settings-store.js?v=1.6.0";
 import {createActionIcon,renderActionGrid,setActionFeedback} from "./card-actions.js?v=1.2.0";
+import {isIndexedDbPhoto} from "./photo-storage.js?v=1.6.0";
 
 document.querySelectorAll("[data-icon]").forEach(slot=>slot.append(createActionIcon(slot.dataset.icon)));
 const settings=settingsService.getSettings();
@@ -48,7 +49,7 @@ function configureMetadata(card,canonical,displayName){
   const description=[card.jobTitle,settings.publicCard.companyName].filter(Boolean).join(" · ");
   const title=`${displayName} | ${settings.publicCard.companyName}`;
   const fullDescription=`Tarjeta digital de ${displayName}${description?` · ${description}`:""}.`;
-  const imageUrl=card.photo?new URL(card.photo,location.href).href:"";
+  const imageUrl=card.photo&&!isIndexedDbPhoto(card)&&!String(card.photo).startsWith("blob:")?new URL(card.photo,location.href).href:"";
   document.querySelector('meta[name="description"]').content=fullDescription;
   document.querySelector('meta[property="og:title"]').content=title;
   document.querySelector('meta[property="og:description"]').content=description||settings.publicCard.tagline;

@@ -3,7 +3,7 @@ import {settingsService} from "./settings-store.js";
 
 export const TEMPLATES_STORAGE_KEY = "nextcards.templates.v1";
 export const TEMPLATES_VERSION_KEY = "nextcards.templates.seed.version";
-export const TEMPLATES_DATA_VERSION = 2;
+export const TEMPLATES_DATA_VERSION = 3;
 
 const SYSTEM_TIMESTAMP = "2026-07-17T00:00:00.000Z";
 const HEX_COLOR = /^#[0-9A-F]{6}$/i;
@@ -37,6 +37,23 @@ const SYSTEM_TEMPLATES = [
     theme: {
       backgroundColor: "#000029", accentColor: "#FA3C0F", textColor: "#FFFFFF", mutedTextColor: "#E1E1E8", secondaryColor: "#FFFFFF",
       buttonStyle: "solid", photoShape: "circle", photoSize: "medium", backgroundPattern: "diagonal-lines",
+      logoVariant: "white", logoPosition: "center", showTagline: true, showDepartment: true, showCity: true,
+      contentOrder: "identity-contact-social",
+    },
+    createdAt: SYSTEM_TIMESTAMP,
+    updatedAt: SYSTEM_TIMESTAMP,
+  },
+  {
+    id: "corporate-solid-navy",
+    name: "Corporate Solid Navy",
+    description: "Diseño clásico corporativo con fondo azul marino sólido y composición centrada.",
+    type: "system",
+    baseTemplateId: null,
+    status: "active",
+    isDefault: false,
+    theme: {
+      backgroundColor: "#000029", accentColor: "#FA3C0F", textColor: "#FFFFFF", mutedTextColor: "#E1E1E8", secondaryColor: "#E1E1E8",
+      buttonStyle: "minimal", photoShape: "circle", photoSize: "large", backgroundPattern: "none",
       logoVariant: "white", logoPosition: "center", showTagline: true, showDepartment: true, showCity: true,
       contentOrder: "identity-contact-social",
     },

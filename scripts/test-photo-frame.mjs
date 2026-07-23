@@ -80,7 +80,7 @@ for (const expected of realPeople) {
   if (expected.orientation === "landscape") assert.ok(metadata.width > metadata.height);
 }
 
-const [app, editor, preview, quickView, templates, analytics, storage, settingsData, index, publicCard, cardHtml, css] = await Promise.all([
+const [app, editor, preview, quickView, templates, analytics, storage, settingsData, index, publicCard, cardHtml, css, editorCss] = await Promise.all([
   read("assets/js/app.js"),
   read("assets/js/editor.js"),
   read("assets/js/preview.js"),
@@ -93,6 +93,7 @@ const [app, editor, preview, quickView, templates, analytics, storage, settingsD
   read("assets/js/public-card.js"),
   read("card.html"),
   read("assets/css/photo-frame.css"),
+  read("assets/css/editor.css"),
 ]);
 
 for (const [surface, source] of Object.entries({dashboard: app, preview, quickView, templates, analytics})) {
@@ -100,7 +101,10 @@ for (const [surface, source] of Object.entries({dashboard: app, preview, quickVi
 }
 assert.match(editor, /setupPhotoFrameEditor/);
 assert.match(editor, /currentPhotoFrame/);
-assert.match(editor, /Fotografía nueva · encuadre centrado/);
+assert.match(editor, /Fotografía preparada · sin guardar/);
+assert.match(editor, /processPhotoFile/);
+assert.match(editor, /savePhoto/);
+assert.match(index, /Hasta 10 MB; se optimiza antes de guardar/);
 assert.match(editor, /isPhotoFrameEditorOpen/);
 assert.doesNotMatch(index, /name="photoPosition"/);
 assert.match(index, /id="photo-frame-modal"/);
@@ -109,7 +113,7 @@ assert.match(index, />Restaurar</);
 assert.match(index, />Aplicar</);
 assert.match(index, />Cancelar</);
 assert.match(index, /aria-keyshortcuts="ArrowLeft/);
-assert.match(storage, /INITIAL_DATA_VERSION = 2/);
+assert.match(storage, /INITIAL_DATA_VERSION = 3/);
 assert.match(storage, /normalizeCardPhotoFrame/);
 assert.match(settingsData, /backup\.cards = backup\.cards\.map\(card => normalizeCardPhotoFrame\(card\)\)/);
 assert.match(publicCard, /renderCardPreview/);
@@ -117,6 +121,7 @@ assert.match(cardHtml, /photo-frame\.css\?v=1\.4\.0/);
 assert.match(css, /touch-action:none/);
 assert.match(css, /@media\(max-width:360px\)/);
 assert.match(css, /prefers-reduced-motion:reduce/);
+assert.match(editorCss, /\.photo-preview>\.photo-frame-image\{object-position:var\(--photo-frame-x,50%\) var\(--photo-frame-y,50%\)\}/);
 assert.doesNotMatch(editor, /canvas|getContext\(/);
 
 console.log("OK: photoFrame normalizado, geometría sin huecos, migración, editor accesible, persistencia y renderizado central en todas las vistas verificados.");

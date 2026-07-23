@@ -1,11 +1,11 @@
-import {cardService,isValidHttpUrl,normalizeSlug} from "./cards.js?v=1.4.0";
+import {cardService,isValidHttpUrl,normalizeSlug} from "./cards.js?v=1.7.0";
 import {getPublicCardUrl,getSourcedPublicCardUrl} from "./card-export.js";
 import {copyText,shareCard} from "./card-sharing.js?v=1.3.1";
-import {renderCardPreview} from "./preview.js?v=1.4.0";
+import {renderCardPreview} from "./preview.js?v=1.7.0";
 import {buildQrSvg,downloadQrPng,renderQrSvg} from "./qr-code.js?v=1.3.1";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.4.0";
-import {templateService} from "./templates-store.js";
-import {createPhotoFrameImage} from "./photo-frame.js?v=1.4.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.6.0";
+import {templateService} from "./templates-store.js?v=1.7.0";
+import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
 
 const statusLabels = {active: "Activa", draft: "Borrador", disabled: "Desactivada"};
 const focusableSelector = 'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';

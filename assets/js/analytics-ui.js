@@ -1,4 +1,4 @@
-import {cardService} from "./cards.js?v=1.4.0";
+import {cardService} from "./cards.js?v=1.7.0";
 import {
   ANALYTICS_EVENT_TYPES,
   ANALYTICS_MAX_EVENTS,
@@ -20,9 +20,9 @@ import {
 } from "./analytics-aggregate.js";
 import {generateAnalyticsDemoData} from "./analytics-demo.js";
 import {getSourcedPublicCardUrl} from "./card-export.js";
-import {templateService} from "./templates-store.js";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.4.0";
-import {createPhotoFrameImage} from "./photo-frame.js?v=1.4.0";
+import {templateService} from "./templates-store.js?v=1.7.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.6.0";
+import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SERIES = Object.freeze({

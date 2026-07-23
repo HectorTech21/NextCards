@@ -1,4 +1,4 @@
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.4.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.6.0";
 
 function fallbackCopy(value) {
   const input = document.createElement("textarea");

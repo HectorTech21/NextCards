@@ -1,6 +1,6 @@
 {
   "name": "nextcards",
-  "version": "1.4.0",
+  "version": "1.7.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +13,9 @@
     "test:quality": "node scripts/test-product-quality.mjs",
     "test:quick-view": "node scripts/test-quick-view.mjs",
     "test:photo-frame": "node scripts/test-photo-frame.mjs",
-    "test": "pnpm test:seed && pnpm test:templates && pnpm test:analytics && pnpm test:settings && pnpm test:actions && pnpm test:quality && pnpm test:quick-view && pnpm test:photo-frame"
+    "test:photo-storage": "node scripts/test-photo-storage.mjs",
+    "test:card-views": "node scripts/test-card-views.mjs",
+    "test": "pnpm test:seed && pnpm test:templates && pnpm test:analytics && pnpm test:settings && pnpm test:actions && pnpm test:quality && pnpm test:quick-view && pnpm test:photo-frame && pnpm test:photo-storage && pnpm test:card-views"
   },
   "devDependencies": {
     "qrcode-generator": "1.4.4",

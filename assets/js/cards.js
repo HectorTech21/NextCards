@@ -1,10 +1,14 @@
-import {storage} from "./storage.js?v=1.4.0";
-import {templateService} from "./templates-store.js";
-import {settingsService} from "./settings-store.js?v=1.4.0";
-import {DEFAULT_PHOTO_FRAME,normalizeCardPhotoFrame} from "./photo-frame.js?v=1.4.0";
+import {storage} from "./storage.js?v=1.6.0";
+import {templateService} from "./templates-store.js?v=1.7.0";
+import {settingsService} from "./settings-store.js?v=1.6.0";
+import {DEFAULT_PHOTO_FRAME,normalizeCardPhotoFrame} from "./photo-frame.js?v=1.6.0";
+import {deletePhotoIfUnused,normalizeCardPhotoFields} from "./photo-storage.js?v=1.6.0";
 
 const uid=()=>globalThis.crypto?.randomUUID?.()||`card-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const stamp=()=>new Date().toISOString();
+const normalizeCard=card=>normalizeCardPhotoFields(normalizeCardPhotoFrame(card));
+
+export const createCardId=()=>uid();
 
 export function normalizeSlug(value="",options={}){
   const lowercase=options.lowercase!==false,spacesToHyphens=options.spacesToHyphens!==false;
@@ -26,15 +30,21 @@ export const cardService = {
   get(identifier){ return this.all().find(card=>card.id===identifier||card.slug===identifier); },
   create(data){
     const cards=this.all();
-    const card=normalizeCardPhotoFrame({...data,id:uid(),createdAt:stamp(),updatedAt:stamp()});
+    const card=normalizeCard({...data,id:String(data.id||"").trim()||uid(),createdAt:stamp(),updatedAt:stamp()});
     cards.unshift(card); storage.saveCards(cards); return card;
   },
   update(id,data){
     const cards=this.all(); const index=cards.findIndex(card=>card.id===id);
     if(index<0) throw new Error("No se ha encontrado la tarjeta.");
-    cards[index]=normalizeCardPhotoFrame({...cards[index],...data,id,updatedAt:stamp()}); storage.saveCards(cards); return cards[index];
+    cards[index]=normalizeCard({...cards[index],...data,id,updatedAt:stamp()}); storage.saveCards(cards); return cards[index];
   },
-  remove(id){ storage.saveCards(this.all().filter(card=>card.id!==id)); },
+  async remove(id){
+    const current=this.get(id);if(!current)return false;
+    const remaining=this.all().filter(card=>card.id!==id);
+    storage.markSeedDeleted(id);storage.saveCards(remaining);
+    await deletePhotoIfUnused(current,remaining);
+    return true;
+  },
   duplicate(id){
     const source=this.get(id); if(!source) throw new Error("No se ha encontrado la tarjeta.");
     const cards=this.all(); let suffix=2; let slug=`${source.slug}-copia`;
