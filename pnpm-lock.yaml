@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      jsqr:
+        specifier: 1.4.0
+        version: 1.4.0
       qrcode-generator:
         specifier: 1.4.4
         version: 1.4.4
@@ -201,6 +204,9 @@ packages:
     resolution: {integrity: sha512-w/XBfkibaTl3YDqASwfDUqkna4Z2p9cFSr1aHDt0WoMTECnRfBOv2WArlZILlqgWlmdIlALXGpM2AOhEk5W3IA==}
     engines: {node: '>=0.8'}
 
+  jsqr@1.4.0:
+    resolution: {integrity: sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A==}
+
   qrcode-generator@1.4.4:
     resolution: {integrity: sha512-HM7yY8O2ilqhmULxGMpcHSF1EhJJ9yBj8gvDEuZ6M+KGJ0YY2hKpnXvRD+hZPLrDVck3ExIGhmPtSdcjC+guuw==}
 
@@ -350,6 +356,8 @@ snapshots:
   detect-libc@2.1.2: {}
 
   frac@1.1.2: {}
+
+  jsqr@1.4.0: {}
 
   qrcode-generator@1.4.4: {}
 

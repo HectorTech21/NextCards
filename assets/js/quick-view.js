@@ -1,9 +1,9 @@
-import {cardService,isValidHttpUrl,normalizeSlug} from "./cards.js?v=1.7.0";
+import {cardService,isValidHttpUrl} from "./cards.js?v=1.8.0";
 import {getPublicCardUrl,getSourcedPublicCardUrl} from "./card-export.js";
 import {copyText,shareCard} from "./card-sharing.js?v=1.3.1";
 import {renderCardPreview} from "./preview.js?v=1.7.0";
-import {buildQrSvg,downloadQrPng,renderQrSvg} from "./qr-code.js?v=1.3.1";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.6.0";
+import {buildQrSvg,renderQrSvg} from "./qr-code.js?v=1.3.1";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.8.0";
 import {templateService} from "./templates-store.js?v=1.7.0";
 import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
 
@@ -14,7 +14,7 @@ let activeCardId = "";
 let previousFocus = null;
 let closeTimer = 0;
 let initialized = false;
-let callbacks = {showToast: () => {}, renderIcons: () => {}, openEditor: () => {}};
+let callbacks = {showToast: () => {}, renderIcons: () => {}, openEditor: () => {}, openPremiumQr: () => {}};
 
 const byId = id => document.getElementById(id);
 const node = (tag, className = "", text = "") => {
@@ -109,7 +109,7 @@ function renderDetails(card, templateName, publicUrl) {
 }
 
 function setUrlAvailability(available) {
-  ["quick-view-open", "quick-view-copy", "quick-view-share"].forEach(id => {
+  ["quick-view-open", "quick-view-copy", "quick-view-share", "quick-view-download-qr"].forEach(id => {
     const button = byId(id);
     button.disabled = !available;
     button.title = available ? "" : "La URL pública no está disponible.";
@@ -260,18 +260,17 @@ async function handleAction(action) {
     } catch (error) { callbacks.showToast(error.message, "error"); }
     return;
   }
-  if (action === "download-qr") {
-    const filename = `qr-${normalizeSlug(`${card.firstName} ${card.lastName}`) || card.slug}.png`;
-    try { await downloadQrPng(byId("quick-view-qr"), filename); callbacks.showToast("QR descargado."); }
-    catch (error) { callbacks.showToast(error.message, "error"); }
+  if (action === "qr-premium") {
+    callbacks.openPremiumQr(card, byId("quick-view-download-qr"));
   }
 }
 
-export function setupQuickView({showToast, renderIconElements, openCardEditor} = {}) {
+export function setupQuickView({showToast, renderIconElements, openCardEditor, openPremiumQr} = {}) {
   callbacks = {
     showToast: showToast || callbacks.showToast,
     renderIcons: renderIconElements || callbacks.renderIcons,
     openEditor: openCardEditor || callbacks.openEditor,
+    openPremiumQr: openPremiumQr || callbacks.openPremiumQr,
   };
   if (initialized) return;
   initialized = true;

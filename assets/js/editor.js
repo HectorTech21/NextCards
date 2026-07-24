@@ -1,9 +1,9 @@
-import {cardService,createCardId,emptyCard,normalizeSlug,sanitizePhone,isValidHttpUrl} from "./cards.js?v=1.7.0";
-import {storage} from "./storage.js?v=1.6.0";
+import {cardService,createCardId,emptyCard,normalizeSlug,sanitizePhone,isValidHttpUrl} from "./cards.js?v=1.8.0";
+import {storage} from "./storage.js?v=1.8.0";
 import {renderCardPreview} from "./preview.js?v=1.7.0";
 import {templateService} from "./templates-store.js?v=1.7.0";
 import {getSourcedPublicCardUrl} from "./card-export.js";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.6.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.8.0";
 import {DEFAULT_PHOTO_FRAME,createPhotoFrameImage,normalizePhotoFrame} from "./photo-frame.js?v=1.6.0";
 import {closePhotoFrameEditor,isPhotoFrameEditorOpen,openPhotoFrameEditor,setupPhotoFrameEditor} from "./photo-frame-editor.js?v=1.6.0";
 import {
@@ -19,6 +19,7 @@ import {
   savePhoto,
   verifyPhotoBlob,
 } from "./photo-storage.js?v=1.6.0";
+import {openQrPremium} from "./qr-premium.js?v=1.8.4";
 
 const overlay=document.querySelector("#editor-overlay");
 const dialog=document.querySelector(".editor-dialog");
@@ -340,6 +341,7 @@ export function setupEditor({onChange,showToast}={}){
     if(action==="regenerate-slug"){autoSlug=true;form.elements.slug.value=suggestedSlug();clearFieldError("slug");refreshPreview({message:"Slug regenerado · sin guardar"});form.elements.slug.focus()}
     if(action==="delete-current")void removeCurrent();
     if(action==="open-current-public")openPublic();
+    if(action==="open-current-qr")openPremiumQr(event.target.closest("[data-action]"));
   });
   document.querySelectorAll("[data-editor-tab]").forEach(button=>button.addEventListener("click",()=>{
     document.querySelectorAll("[data-editor-tab]").forEach(tab=>tab.setAttribute("aria-selected",String(tab===button)));
@@ -401,6 +403,20 @@ function openPublic(){
   if(editorDirty){toast("Guarda los cambios antes de abrir la tarjeta pública.","error");return}
   const card=cardService.get(id);if(!card){toast("No se ha encontrado la tarjeta guardada.","error");return}
   window.open(getSourcedPublicCardUrl(card,"editor_preview"),"_blank","noopener,noreferrer");
+}
+
+function openPremiumQr(opener){
+  const id=form.elements.id.value;
+  if(!id){toast("Guarda primero la tarjeta para crear su QR premium.","error");return}
+  if(editorDirty){toast("Guarda los cambios antes de crear el QR premium.","error");return}
+  const card=cardService.get(id);if(!card){toast("No se ha encontrado la tarjeta guardada.","error");return}
+  openQrPremium({
+    card,
+    url:getSourcedPublicCardUrl(card,"qr"),
+    settings:settingsService.getSettings(),
+    opener,
+    allowSave:true,
+  });
 }
 
 export function openEditor(id="",{focusTemplate=false}={}){

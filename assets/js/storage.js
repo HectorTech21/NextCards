@@ -1,5 +1,6 @@
 import {normalizeCardPhotoFrame} from "./photo-frame.js?v=1.6.0";
 import {normalizeCardPhotoFields} from "./photo-storage.js?v=1.6.0";
+import {normalizeCardQrStyle} from "./qr-premium-core.js?v=1.8.1";
 
 export const STORAGE_KEY = "nextcards.cards.v1";
 export const SEED_VERSION_KEY = "nextcards.seed.version";
@@ -18,7 +19,7 @@ function clone(value) {
 }
 
 function normalizeCards(cards) {
-  return cards.map(card => normalizeCardPhotoFields(normalizeCardPhotoFrame(card)));
+  return cards.map(card => normalizeCardQrStyle(normalizeCardPhotoFields(normalizeCardPhotoFrame(card))));
 }
 
 function normalize(value = "") {

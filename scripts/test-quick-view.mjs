@@ -24,7 +24,8 @@ assert.match(app, /openQuickView\(id,opener\)/, "La tarjeta debe abrirse por ID,
 assert.match(quickView, /renderCardPreview\(byId\("quick-view-card-preview"\), card\)/, "Debe reutilizarse el renderizador real.");
 assert.match(quickView, /buildQrSvg\(/);
 assert.match(quickView, /renderQrSvg\(/);
-assert.match(quickView, /downloadQrPng\(/);
+assert.match(index, /data-quick-view-action="qr-premium"/);
+assert.match(quickView, /callbacks\.openPremiumQr\(card,/);
 assert.match(quickView, /copyText\(/);
 assert.match(quickView, /shareCard\(/);
 assert.match(quickView, /callbacks\.openEditor\(id\)/);

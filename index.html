@@ -9,14 +9,15 @@
   <link rel="icon" href="assets/img/logos/lognext-symbol-positive.svg">
   <link rel="stylesheet" href="assets/css/variables.css?v=1.2.0">
   <link rel="stylesheet" href="assets/css/global.css?v=1.3.0">
-  <link rel="stylesheet" href="assets/css/card-actions.css?v=1.2.0">
+  <link rel="stylesheet" href="assets/css/card-actions.css?v=1.8.1">
   <link rel="stylesheet" href="assets/css/dashboard.css?v=1.5.0">
   <link rel="stylesheet" href="assets/css/quick-view.css?v=1.3.1">
-  <link rel="stylesheet" href="assets/css/editor.css?v=1.6.2">
+  <link rel="stylesheet" href="assets/css/editor.css?v=1.8.1">
   <link rel="stylesheet" href="assets/css/photo-frame.css?v=1.4.0">
   <link rel="stylesheet" href="assets/css/templates.css?v=1.3.0">
   <link rel="stylesheet" href="assets/css/analytics.css?v=1.2.0">
-  <link rel="stylesheet" href="assets/css/settings.css?v=1.2.0">
+  <link rel="stylesheet" href="assets/css/settings.css?v=1.8.1">
+  <link rel="stylesheet" href="assets/css/qr-premium.css?v=1.8.1">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Saltar al contenido</a>
@@ -314,11 +315,19 @@
                 </div>
                 <div class="settings-card settings-subsection">
                   <h3>Código QR</h3>
+                  <p class="settings-help">Estos valores son el punto de partida de QR premium. Cada tarjeta puede guardar su propia variante.</p>
                   <div class="settings-grid two-columns">
                     <label>Tamaño<select data-setting="cards.qr.size"><option value="small">Pequeño</option><option value="medium">Medio</option><option value="large">Grande</option></select></label>
-                    <label>Corrección de errores<select data-setting="cards.qr.errorCorrection"><option value="L">L · 7%</option><option value="M">M · 15%</option><option value="Q">Q · 25%</option><option value="H">H · 30%</option></select></label>
-                    <label>Color oscuro<div class="settings-color-field"><input type="color" data-color-for="cards.qr.darkColor"><input type="text" data-setting="cards.qr.darkColor" maxlength="7"></div><small class="field-error" data-settings-error="cards.qr.darkColor"></small></label>
-                    <label>Color claro<div class="settings-color-field"><input type="color" data-color-for="cards.qr.lightColor"><input type="text" data-setting="cards.qr.lightColor" maxlength="7"></div><small class="field-error" data-settings-error="cards.qr.lightColor"></small></label>
+                    <label>Preset<select data-setting="cards.qr.preset"><option value="corporate-navy">Corporate Navy</option><option value="corporate-orange">Corporate Orange</option><option value="dark-card">Dark Card</option><option value="monochrome">Monochrome</option><option value="transparent">Transparent</option><option value="custom">Personalizado</option></select></label>
+                    <label>Corrección de errores<select data-setting="cards.qr.errorCorrection"><option value="M">M · 15%</option><option value="Q">Q · 25%</option><option value="H">H · 30%</option></select></label>
+                    <label>Forma de módulos<select data-setting="cards.qr.dotsStyle"><option value="square">Cuadrados</option><option value="rounded">Redondeados</option><option value="dots">Circulares</option></select></label>
+                    <label>Esquinas<select data-setting="cards.qr.cornersStyle"><option value="square">Cuadradas</option><option value="rounded">Redondeadas</option></select></label>
+                    <label>Símbolo central<select data-setting="cards.qr.logo"><option value="lognext-symbol">Símbolo Lognext</option><option value="none">Sin símbolo</option></select></label>
+                    <label>Margen<select data-setting="cards.qr.margin"><option value="16">16 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="30">30 px</option><option value="36">36 px</option><option value="48">48 px</option></select></label>
+                    <label>Primer plano<div class="settings-color-field"><input type="color" data-color-for="cards.qr.foregroundColor"><input type="text" data-setting="cards.qr.foregroundColor" maxlength="7"></div><small class="field-error" data-settings-error="cards.qr.foregroundColor"></small></label>
+                    <label>Fondo<div class="settings-color-field"><input type="color" data-color-for="cards.qr.backgroundColor"><input type="text" data-setting="cards.qr.backgroundColor" maxlength="7"></div><small class="field-error" data-settings-error="cards.qr.backgroundColor"></small></label>
+                    <label>Acento<div class="settings-color-field"><input type="color" data-color-for="cards.qr.accentColor"><input type="text" data-setting="cards.qr.accentColor" maxlength="7"></div><small class="field-error" data-settings-error="cards.qr.accentColor"></small></label>
+                    <label class="settings-switch-row"><input type="checkbox" data-setting="cards.qr.transparent"><span><strong>Fondo transparente</strong><small>Úsalo solo sobre superficies claras y uniformes.</small></span></label>
                   </div>
                 </div>
                 <div class="settings-card settings-subsection">
@@ -468,7 +477,7 @@
         <div class="quick-view-secondary-actions">
           <button class="button button-secondary" id="quick-view-copy" type="button" data-quick-view-action="copy"><span data-icon="copy"></span>Copiar</button>
           <button class="button button-secondary" id="quick-view-share" type="button" data-quick-view-action="share"><span data-icon="share"></span>Compartir</button>
-          <button class="button button-secondary" id="quick-view-download-qr" type="button" data-quick-view-action="download-qr"><span data-icon="download"></span>Descargar QR</button>
+          <button class="button button-secondary" id="quick-view-download-qr" type="button" data-quick-view-action="qr-premium"><span data-icon="qr"></span>QR premium</button>
         </div>
       </footer>
     </aside>
@@ -563,7 +572,10 @@
         <aside class="editor-preview">
           <div class="preview-toolbar">
             <div><span class="live-dot"></span><strong>Vista previa en directo</strong></div>
-            <button class="icon-button" type="button" data-action="open-current-public" aria-label="Abrir vista pública"><span data-icon="external"></span></button>
+            <div class="preview-toolbar-actions">
+              <button class="button button-secondary editor-qr-button" type="button" data-action="open-current-qr"><span data-icon="qr"></span>QR premium</button>
+              <button class="icon-button" type="button" data-action="open-current-public" aria-label="Abrir vista pública"><span data-icon="external"></span></button>
+            </div>
           </div>
           <div class="phone-frame"><div id="live-preview" class="digital-card"></div></div>
           <p>La tarjeta se adapta automáticamente a cualquier pantalla.</p>
@@ -704,6 +716,6 @@
 
   <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
   <script src="assets/js/vendor/qrcode-generator.js?v=1.3.1"></script>
-  <script type="module" src="assets/js/app.js?v=1.7.0"></script>
+  <script type="module" src="assets/js/app.js?v=1.8.4"></script>
 </body>
 </html>

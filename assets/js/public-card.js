@@ -1,20 +1,25 @@
-import {cardService} from "./cards.js?v=1.7.0";
+import {cardService} from "./cards.js?v=1.8.0";
 import {renderCardPreview} from "./preview.js?v=1.7.0";
 import {buildVcard,getPublicCardUrl,getSourcedPublicCardUrl,getVcardFilename} from "./card-export.js";
 import {copyText,shareCard} from "./card-sharing.js?v=1.3.1";
 import {renderQr} from "./qr-code.js?v=1.3.1";
 import {getAccessContext,safeTrackEvent,trackPublicCardView} from "./analytics.js";
-import {applySettingsToDocument,formatPersonName,settingsService} from "./settings-store.js?v=1.6.0";
-import {createActionIcon,renderActionGrid,setActionFeedback} from "./card-actions.js?v=1.2.0";
+import {applySettingsToDocument,formatPersonName,settingsService} from "./settings-store.js?v=1.8.0";
+import {createActionIcon,renderActionGrid,setActionFeedback} from "./card-actions.js?v=1.8.1";
 import {isIndexedDbPhoto} from "./photo-storage.js?v=1.6.0";
+import {openQrPremium,setupQrPremium} from "./qr-premium.js?v=1.8.4";
 
-document.querySelectorAll("[data-icon]").forEach(slot=>slot.append(createActionIcon(slot.dataset.icon)));
+function renderPublicIcons(root=document){
+  root.querySelectorAll("[data-icon]").forEach(slot=>{if(!slot.children.length)slot.append(createActionIcon(slot.dataset.icon))});
+}
+renderPublicIcons();
 const settings=settingsService.getSettings();
 applySettingsToDocument(settings);
 
 function toast(message,type="success"){
   const item=document.createElement("div");item.className=`toast ${type}`;item.setAttribute("role",type==="error"?"alert":"status");item.append(createActionIcon(type==="success"?"check":"link"),document.createTextNode(message));document.querySelector("#toast-region").append(item);setTimeout(()=>item.remove(),3000);
 }
+setupQrPremium({showToast:toast,renderIconElements:renderPublicIcons});
 const parameter=new URLSearchParams(location.search).get("id");
 const card=cardService.get(parameter);
 const publicCard=document.querySelector("#public-card"),actions=document.querySelector("#public-actions"),notFound=document.querySelector("#not-found");
@@ -42,6 +47,13 @@ if(!card||card.status==="disabled"){
   document.querySelector("#public-privacy-note").hidden=!settings.privacy.showPersonalDataNotice;
   publicCard.addEventListener("click",event=>{const trigger=event.target.closest("[data-analytics-event]");if(trigger)safeTrackEvent(trigger.dataset.analyticsEvent,analyticsContext)});
   document.querySelector("#copy-top").addEventListener("click",()=>copy(copiedUrl,{analyticsContext}));
+  document.querySelector("#public-qr-premium").addEventListener("click",event=>openQrPremium({
+    card,
+    url:qrUrl,
+    settings,
+    allowSave:false,
+    opener:event.currentTarget,
+  }));
   actions.addEventListener("click",event=>{const trigger=event.target.closest("[data-analytics-event]");if(trigger)safeTrackEvent(trigger.dataset.analyticsEvent,analyticsContext)});
 }
 

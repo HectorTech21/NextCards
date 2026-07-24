@@ -1,5 +1,5 @@
 import {templateService,readableTextColor} from "./templates-store.js?v=1.7.0";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.6.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.8.0";
 import {renderActionGrid} from "./card-actions.js?v=1.2.0";
 import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
 

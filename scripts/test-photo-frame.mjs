@@ -115,7 +115,7 @@ assert.match(index, />Cancelar</);
 assert.match(index, /aria-keyshortcuts="ArrowLeft/);
 assert.match(storage, /INITIAL_DATA_VERSION = 3/);
 assert.match(storage, /normalizeCardPhotoFrame/);
-assert.match(settingsData, /backup\.cards = backup\.cards\.map\(card => normalizeCardPhotoFrame\(card\)\)/);
+assert.match(settingsData, /backup\.cards = backup\.cards\.map\(card => normalizeCardQrStyle\(normalizeCardPhotoFrame\(card\)\)\)/);
 assert.match(publicCard, /renderCardPreview/);
 assert.match(cardHtml, /photo-frame\.css\?v=1\.4\.0/);
 assert.match(css, /touch-action:none/);

@@ -70,22 +70,23 @@ assert.equal(migrated.version, SETTINGS_SCHEMA_VERSION);
 assert.equal(migrated.general.appName, "Cards de equipo");
 assert.equal(migrated.general.language, "es");
 assert.equal(migrated.appearance.accentColor, "#3791F5");
-assert.equal(migrated.cards.qr.errorCorrection, "M", "La migración debe completar grupos anidados nuevos.");
+assert.equal(migrated.cards.qr.errorCorrection, "H", "La migración debe completar el QR premium con una corrección segura para el símbolo.");
+assert.equal(migrated.cards.qr.preset, "corporate-navy");
 assert.equal(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY)).version, SETTINGS_SCHEMA_VERSION, "La migración debe escribirse una sola vez en el esquema actual.");
 
 const invalid = getDefaultSettings();
 invalid.general.appName = "";
 invalid.appearance.primaryColor = "navy";
 invalid.publicCard.companyUrl = "javascript:alert(1)";
-invalid.cards.qr.darkColor = "#FFFFFF";
-invalid.cards.qr.lightColor = "#FFFFFF";
+invalid.cards.qr.foregroundColor = "#FFFFFF";
+invalid.cards.qr.backgroundColor = "#FFFFFF";
 invalid.cards.slug.autoGenerate = false;
 invalid.cards.slug.allowManualEdit = false;
 const invalidResult = validateSettings(invalid);
 assert.ok(invalidResult.errors.some(item => item.field === "general.appName"));
 assert.ok(invalidResult.errors.some(item => item.field === "appearance.primaryColor"));
 assert.ok(invalidResult.errors.some(item => item.field === "publicCard.companyUrl"));
-assert.ok(invalidResult.errors.some(item => item.field === "cards.qr.darkColor"));
+assert.ok(invalidResult.errors.some(item => item.field === "cards.qr.foregroundColor"));
 assert.ok(invalidResult.errors.some(item => item.field === "cards.slug.autoGenerate"));
 assert.ok(colorContrast("#000029", "#FFFFFF") > 15);
 const poorInterfaceContrast = getDefaultSettings();
@@ -101,7 +102,15 @@ customized.general.timezone = "Europe/Madrid";
 customized.cards.defaultTemplateId = "clean-light";
 customized.cards.defaultStatus = "draft";
 customized.cards.defaultVisibleFields.photo = false;
-customized.cards.qr = {size: "large", errorCorrection: "Q", darkColor: "#000029", lightColor: "#FFFA96"};
+Object.assign(customized.cards.qr, {
+  size: "large",
+  preset: "custom",
+  errorCorrection: "Q",
+  foregroundColor: "#000029",
+  backgroundColor: "#FFFA96",
+  accentColor: "#FA3C0F",
+  logo: "none",
+});
 customized.cards.vcf = {
   includeJobTitle: false,
   includeCompany: false,
@@ -171,6 +180,20 @@ assert.deepEqual(disabledTracking, {saved: false, disabled: true});
 assert.equal(analyticsWrites, 0, "Desactivar analítica debe impedir nuevas escrituras.");
 
 const customTemplate = templateService.createVariant("clean-light", {name: "Clean de respaldo"});
+const cardsWithQrStyle = storage.getCards();
+cardsWithQrStyle[0].qrStyle = {
+  preset: "dark-card",
+  foregroundColor: "#FFFFFF",
+  backgroundColor: "#000029",
+  accentColor: "#FA3C0F",
+  dotsStyle: "rounded",
+  cornersStyle: "rounded",
+  logo: "lognext-symbol",
+  margin: 24,
+  errorCorrection: "H",
+};
+storage.saveCards(cardsWithQrStyle);
+assert.equal(storage.getCards()[0].qrStyle.preset, "dark-card", "El estilo QR individual debe persistir tras una nueva lectura.");
 const backup = buildBackup();
 assert.equal(backup.format, BACKUP_FORMAT);
 assert.equal(backup.backupVersion, BACKUP_VERSION);
@@ -178,6 +201,7 @@ assert.equal(backup.appVersion, NEXTCARDS_VERSION);
 assert.equal(backup.customTemplates.length, 1);
 assert.ok(Array.isArray(backup.cards) && backup.cards.length === seed.length);
 assert.ok(backup.settings.general.appName === "NextCards Equipo");
+assert.equal(backup.cards[0].qrStyle.preset, "dark-card", "La copia debe incluir qrStyle sin imágenes generadas.");
 assert.equal(backup.photoStorage.included, false, "La copia debe declarar expresamente que no contiene los blobs de IndexedDB.");
 assert.equal(backup.photoStorage.database, "nextcards-photos");
 assert.equal("analytics" in backup, false, "La copia administrativa no debe mezclar el historial analítico.");
@@ -185,6 +209,12 @@ assert.doesNotMatch(serializeBackup(), /[A-Z]:\\Users\\/i, "La copia no debe inc
 const validated = validateBackup(backup);
 assert.equal(validated.summary.cards, seed.length);
 assert.equal(validated.summary.customTemplates, 1);
+const corruptQrBackup = structuredClone(backup);
+corruptQrBackup.cards[0].qrStyle = {preset: "inventado", foregroundColor: "red", logo: "https://example.com/logo.svg", margin: -4};
+const sanitizedQrBackup = validateBackup(corruptQrBackup);
+assert.equal(sanitizedQrBackup.backup.cards[0].qrStyle.preset, "corporate-navy");
+assert.equal(sanitizedQrBackup.backup.cards[0].qrStyle.foregroundColor, "#000029");
+assert.equal(sanitizedQrBackup.backup.cards[0].qrStyle.logo, "lognext-symbol");
 assert.throws(() => validateBackup({...backup, format: "otra-app"}), error => error.code === "INVALID_BACKUP_FORMAT");
 assert.throws(() => validateBackup({...backup, backupVersion: BACKUP_VERSION + 1}), error => error.code === "INCOMPATIBLE_BACKUP");
 assert.throws(() => validateBackup({...backup, cards: [...backup.cards, {...backup.cards[0]}]}), error => error.code === "DUPLICATE_CARDS");

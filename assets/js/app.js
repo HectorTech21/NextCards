@@ -1,17 +1,18 @@
-import {storage} from "./storage.js?v=1.6.0";
-import {cardService} from "./cards.js?v=1.7.0";
-import {setupEditor,openEditor,deleteFromDashboard} from "./editor.js?v=1.7.0";
+import {storage} from "./storage.js?v=1.8.0";
+import {cardService} from "./cards.js?v=1.8.0";
+import {setupEditor,openEditor,deleteFromDashboard} from "./editor.js?v=1.8.4";
 import {getSourcedPublicCardUrl} from "./card-export.js";
 import {copyText} from "./card-sharing.js?v=1.3.1";
-import {openQuickView,refreshQuickView,setupQuickView} from "./quick-view.js?v=1.7.0";
+import {openQuickView,refreshQuickView,setupQuickView} from "./quick-view.js?v=1.8.0";
 import {setupTemplatesUI,renderTemplatesSection} from "./templates-ui.js?v=1.7.0";
 import {templateService} from "./templates-store.js?v=1.7.0";
 import {setupAnalyticsUI,renderAnalyticsSection} from "./analytics-ui.js?v=1.7.0";
-import {applySettingsToDocument,formatPersonName,getDefaultSettings,settingsService} from "./settings-store.js?v=1.6.0";
-import {isSettingsDirty,renderSettingsSection,requestSettingsLeave,setupSettingsUI} from "./settings-ui.js?v=1.7.0";
+import {applySettingsToDocument,formatPersonName,getDefaultSettings,settingsService} from "./settings-store.js?v=1.8.0";
+import {isSettingsDirty,renderSettingsSection,requestSettingsLeave,setupSettingsUI} from "./settings-ui.js?v=1.8.0";
 import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
 import {clearAllPhotos,pruneUnusedPhotos} from "./photo-storage.js?v=1.6.0";
 import {CARDS_VIEW_STORAGE_KEY,DEFAULT_LIST_SORT,readCardsViewMode,sortCardsForList,writeCardsViewMode} from "./cards-view.js?v=1.5.0";
+import {openQrPremium,setupQrPremium} from "./qr-premium.js?v=1.8.4";
 
 const iconPaths={
   cards:"M4 4h16v16H4z M8 8h8 M8 12h6",people:"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75",
@@ -88,7 +89,7 @@ function createCard(card,settings){
   cover.dataset.cardMenuHost="";
   const quickTrigger=createButton("","quick-view-trigger","quick-view",card.id);quickTrigger.setAttribute("aria-label",`Abrir vista rápida de ${displayName}`);quickTrigger.title="Vista rápida";
   const logo=node("img","employee-logo");logo.src="assets/img/logos/lognext-negative.svg";logo.alt="";logo.decoding="async";logo.addEventListener("error",()=>logo.remove(),{once:true});
-  const {menuButton,menu}=createCardMenu(card,displayName,[["Vista rápida","quick-view"],["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]],"grid");
+  const {menuButton,menu}=createCardMenu(card,displayName,[["Vista rápida","quick-view"],["Descargar QR","qr-premium"],["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]],"grid");
   cover.append(quickTrigger,logo,menuButton,menu);
   if(card.photo&&card.visibleFields?.photo!==false){const frame=node("div","employee-photo");const img=createPhotoFrameImage(card.photo,{alt:`Foto de ${displayName}`,frame:card.photoFrame,legacyPosition:card.photoPosition,loading:"lazy",onError:()=>frame.replaceWith(node("div","employee-initials",initials(card)))});frame.append(img);cover.append(frame)}else cover.append(node("div","employee-initials",initials(card)));
   const info=node("div","employee-info"),top=node("div","employee-info-top");
@@ -154,7 +155,7 @@ function createListRow(card,settings){
   const actionCell=createListCell("cards-list-actions-cell","Acciones"),actions=node("div","cards-list-actions");actions.dataset.cardMenuHost="";
   const quick=createButton("","button button-secondary list-primary-action","quick-view",card.id,"eye");quick.title="Vista rápida";quick.setAttribute("aria-label",`Vista rápida de ${displayName}`);quick.append(node("span","list-action-label","Vista rápida"));
   const edit=createButton("","button button-primary list-primary-action","edit",card.id,"edit");edit.title="Editar";edit.setAttribute("aria-label",`Editar tarjeta de ${displayName}`);edit.append(node("span","list-action-label","Editar"));
-  const {menuButton,menu}=createCardMenu(card,displayName,[["Ver tarjeta","view"],["Copiar enlace","copy"],["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]],"list");
+  const {menuButton,menu}=createCardMenu(card,displayName,[["Ver tarjeta","view"],["Copiar enlace","copy"],["Descargar QR","qr-premium"],["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]],"list");
   menuButton.classList.add("list-card-menu-button");actions.append(quick,edit,menuButton,menu);actionCell.append(actions);
   row.append(person,role,team,email,status,template,updated,actionCell);return row;
 }
@@ -227,6 +228,17 @@ async function copyCardLink(id){
   await copyText(url);showToast("Enlace copiado.");
 }
 
+function openPremiumQrForCard(card,opener=document.activeElement){
+  if(!card){showToast("No se ha encontrado la tarjeta.","error");return false}
+  return openQrPremium({
+    card,
+    url:getSourcedPublicCardUrl(card,"qr"),
+    settings:readSettings(),
+    opener,
+    allowSave:true,
+  });
+}
+
 function closeCardMenus(){
   document.querySelectorAll(".card-menu").forEach(menu=>{menu.hidden=true;menu.parentElement?.querySelector(".card-menu-button")?.setAttribute("aria-expanded","false")});
 }
@@ -241,6 +253,12 @@ async function handleAction(action,id,target){
     openQuickView(id,opener);
   }
   if(action==="edit")openEditor(id);
+  if(action==="qr-premium"){
+    const card=cardService.get(id);
+    const opener=target.closest(".card-menu")?.parentElement?.querySelector(".card-menu-button")||target;
+    closeCardMenus();
+    openPremiumQrForCard(card,opener);
+  }
   if(action==="template"){openEditor(id,{focusTemplate:true});showToast("Selecciona una plantilla y guarda los cambios.")}
   if(action==="view"){const card=cardService.get(id);window.open(getSourcedPublicCardUrl(card,"admin_preview"),"_blank","noopener,noreferrer")}
   if(action==="copy")copyCardLink(id).catch(()=>showToast("No se pudo copiar el enlace.","error"));
@@ -259,7 +277,8 @@ async function handleAction(action,id,target){
   if(["export","import","restore"].includes(action)){document.querySelector("#data-menu").hidden=true}
 }
 
-setupQuickView({showToast,renderIconElements:renderIcons,openCardEditor:openEditor});
+setupQrPremium({showToast,renderIconElements:renderIcons,onCardUpdated:()=>{refreshDepartments();renderDashboard();refreshQuickView()}});
+setupQuickView({showToast,renderIconElements:renderIcons,openCardEditor:openEditor,openPremiumQr:openPremiumQrForCard});
 setupEditor({onChange:()=>{refreshDepartments();renderDashboard();refreshQuickView()},showToast});
 setupTemplatesUI({showToast,onCardsUpdate:()=>{refreshDepartments();renderDashboard()},renderIconElements:renderIcons});
 setupAnalyticsUI({showToast,renderIconElements:renderIcons,openCardEditor:openEditor});

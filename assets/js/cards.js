@@ -1,12 +1,13 @@
-import {storage} from "./storage.js?v=1.6.0";
+import {storage} from "./storage.js?v=1.8.0";
 import {templateService} from "./templates-store.js?v=1.7.0";
-import {settingsService} from "./settings-store.js?v=1.6.0";
+import {settingsService} from "./settings-store.js?v=1.8.0";
 import {DEFAULT_PHOTO_FRAME,normalizeCardPhotoFrame} from "./photo-frame.js?v=1.6.0";
 import {deletePhotoIfUnused,normalizeCardPhotoFields} from "./photo-storage.js?v=1.6.0";
+import {normalizeCardQrStyle} from "./qr-premium-core.js?v=1.8.1";
 
 const uid=()=>globalThis.crypto?.randomUUID?.()||`card-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const stamp=()=>new Date().toISOString();
-const normalizeCard=card=>normalizeCardPhotoFields(normalizeCardPhotoFrame(card));
+const normalizeCard=card=>normalizeCardQrStyle(normalizeCardPhotoFields(normalizeCardPhotoFrame(card)));
 
 export const createCardId=()=>uid();
 
@@ -72,6 +73,6 @@ export function emptyCard(){
     id:"",slug:"",cardName:"",firstName:"",lastName:"",jobTitle:"",department:"",city:"Madrid",pronouns:"",
     email:"",phone:"",mobile:"",website:settings.publicCard.companyUrl,linkedin:"",location:"Madrid",customLink:"",bio:"",
     photo:"",photoFrame:{...DEFAULT_PHOTO_FRAME},template:defaultTemplate.id,accentColor:defaultTemplate.theme.accentColor,status:settings.cards.defaultStatus,language:"es",
-    visibleFields:{...settings.cards.defaultVisibleFields}
+    visibleFields:{...settings.cards.defaultVisibleFields},qrStyle:null
   };
 }

@@ -32,6 +32,7 @@ html[data-logo-resource="logo-positive"] .public-brand img{background:white}
 .public-url-display{width:100%;min-width:0;min-height:44px;padding:9px 11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#f8f8fa;color:#666674;display:grid;grid-template-columns:20px minmax(0,1fr);gap:8px;align-items:center}
 .public-url-display span:last-child{min-width:0;font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text}
 .public-url-display svg{width:17px;color:#777785}
+.public-qr-premium-button{min-height:44px;margin-top:13px;padding:8px 12px;font-size:.68rem}.public-qr-premium-button svg{width:17px;height:17px}
 .privacy-note{font-size:.65rem;color:#888894;display:flex;align-items:center;gap:6px;margin:14px 0 0}.privacy-note svg{width:14px;flex:0 0 auto}
 .public-footer{margin-top:18px;padding-top:15px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
 .public-footer a{display:flex;align-items:center;gap:7px;text-decoration:none;font-size:.72rem;font-weight:600}.public-footer img{width:72px;max-height:22px}.public-footer small{font-size:.62rem;color:var(--muted)}

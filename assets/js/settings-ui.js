@@ -9,7 +9,7 @@ import {
   getDefaultSettings,
   settingsService,
   validateSettings,
-} from "./settings-store.js?v=1.6.0";
+} from "./settings-store.js?v=1.8.0";
 import {
   buildCardsCsv,
   buildTechnicalSummary,
@@ -20,8 +20,9 @@ import {
   restoreInitialNextCardsData,
   serializeBackup,
   validateBackup,
-} from "./settings-data.js?v=1.7.0";
+} from "./settings-data.js?v=1.8.0";
 import {getPhotoStorageUsage} from "./photo-storage.js?v=1.6.0";
+import {QR_PRESETS} from "./qr-premium-core.js?v=1.8.1";
 
 const SAMPLE_CARD = Object.freeze({
   id: "settings-preview-sample",
@@ -272,11 +273,31 @@ function controlValue(control) {
 }
 
 function changeDraft(control) {
-  setPath(draft, control.dataset.setting, controlValue(control));
-  if (control.dataset.setting.endsWith("Color")) {
+  const path = control.dataset.setting;
+  setPath(draft, path, controlValue(control));
+  if (path === "cards.qr.preset" && QR_PRESETS[control.value]) {
+    Object.assign(draft.cards.qr, QR_PRESETS[control.value], {
+      preset: control.value,
+      darkColor: QR_PRESETS[control.value].foregroundColor,
+      lightColor: QR_PRESETS[control.value].backgroundColor,
+    });
+    hydrateForm();
+    return;
+  }
+  if (path.startsWith("cards.qr.") && !["cards.qr.size", "cards.qr.preset"].includes(path)) {
+    draft.cards.qr.preset = "custom";
+    if (path === "cards.qr.foregroundColor") draft.cards.qr.darkColor = control.value;
+    if (path === "cards.qr.backgroundColor") draft.cards.qr.lightColor = control.value;
+    if (path === "cards.qr.logo" && control.value === "lognext-symbol") {
+      draft.cards.qr.errorCorrection = "H";
+      document.querySelector('[data-setting="cards.qr.errorCorrection"]').value = "H";
+    }
+    document.querySelector('[data-setting="cards.qr.preset"]').value = "custom";
+  }
+  if (path.endsWith("Color")) {
     const normalized = String(control.value).toUpperCase();
     control.value = normalized;
-    const picker = document.querySelector(`[data-color-for="${control.dataset.setting}"]`);
+    const picker = document.querySelector(`[data-color-for="${path}"]`);
     if (picker && /^#[0-9A-F]{6}$/.test(normalized)) picker.value = normalized;
   }
   renderPreview();
@@ -637,6 +658,12 @@ export function setupSettingsUI(options = {}) {
       const path = picker.dataset.colorFor;
       const value = picker.value.toUpperCase();
       setPath(draft, path, value);
+      if (path.startsWith("cards.qr.")) {
+        draft.cards.qr.preset = "custom";
+        if (path === "cards.qr.foregroundColor") draft.cards.qr.darkColor = value;
+        if (path === "cards.qr.backgroundColor") draft.cards.qr.lightColor = value;
+        document.querySelector('[data-setting="cards.qr.preset"]').value = "custom";
+      }
       const textControl = document.querySelector(`[data-setting="${path}"]`);
       if (textControl) textControl.value = value;
       renderPreview();

@@ -67,6 +67,7 @@
 .settings-order-actions button:disabled{opacity:.35;cursor:not-allowed}
 .settings-subsection{border-left:3px solid var(--orange)}
 .settings-subsection>h3{margin-bottom:15px}
+.settings-switch-row{min-height:50px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;gap:9px;cursor:pointer}.settings-switch-row input{width:18px;height:18px;accent-color:var(--orange);flex:0 0 auto}.settings-switch-row span,.settings-switch-row strong,.settings-switch-row small{display:block}.settings-switch-row small{margin-top:2px!important}
 .settings-subsection-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .settings-subsection-heading .eyebrow{font-size:.58rem}
 .settings-public-toggles{margin-top:17px}

@@ -1,6 +1,8 @@
+import {QR_PRESETS,sanitizeQrStyle} from "./qr-premium-core.js?v=1.8.1";
+
 export const SETTINGS_STORAGE_KEY = "nextcards.settings.v1";
-export const SETTINGS_SCHEMA_VERSION = 1;
-export const NEXTCARDS_VERSION = "1.7.0";
+export const SETTINGS_SCHEMA_VERSION = 2;
+export const NEXTCARDS_VERSION = "1.8.0";
 
 export const LOGO_RESOURCES = Object.freeze({
   "symbol-negative": {label: "Símbolo", path: "assets/img/logos/lognext-symbol-negative.svg"},
@@ -66,9 +68,19 @@ function createDefaults() {
       actionOrder: CARD_ACTIONS.map(item => item.id),
       qr: {
         size: "medium",
-        errorCorrection: "M",
+        preset: "corporate-navy",
+        errorCorrection: "H",
         darkColor: "#000029",
         lightColor: "#FFFFFF",
+        foregroundColor: "#000029",
+        backgroundColor: "#FFFFFF",
+        accentColor: "#FA3C0F",
+        accentDetails: "subtle",
+        transparent: false,
+        dotsStyle: "rounded",
+        cornersStyle: "rounded",
+        logo: "lognext-symbol",
+        margin: 24,
       },
       vcf: {
         includeJobTitle: true,
@@ -175,11 +187,25 @@ export function mergeWithDefaults(input = {}) {
     normalized.cards.defaultVisibleFields[key] = flag(merged.cards.defaultVisibleFields[key], defaults.cards.defaultVisibleFields[key]);
   });
   normalized.cards.actionOrder = normalizeOrder(merged.cards.actionOrder);
+  const inputQr = isObject(input?.cards?.qr) ? input.cards.qr : {};
+  const premiumQr = sanitizeQrStyle({
+    preset: allowed(merged.cards.qr.preset, [...Object.keys(QR_PRESETS), "custom"], defaults.cards.qr.preset),
+    foregroundColor: inputQr.foregroundColor ?? inputQr.darkColor ?? merged.cards.qr.foregroundColor,
+    backgroundColor: inputQr.backgroundColor ?? inputQr.lightColor ?? merged.cards.qr.backgroundColor,
+    accentColor: merged.cards.qr.accentColor,
+    accentDetails: merged.cards.qr.accentDetails,
+    transparent: merged.cards.qr.transparent,
+    dotsStyle: merged.cards.qr.dotsStyle,
+    cornersStyle: merged.cards.qr.cornersStyle,
+    logo: merged.cards.qr.logo,
+    margin: merged.cards.qr.margin,
+    errorCorrection: merged.cards.qr.errorCorrection,
+  });
   normalized.cards.qr = {
     size: allowed(merged.cards.qr.size, ["small", "medium", "large"], defaults.cards.qr.size),
-    errorCorrection: allowed(merged.cards.qr.errorCorrection, ["L", "M", "Q", "H"], defaults.cards.qr.errorCorrection),
-    darkColor: color(merged.cards.qr.darkColor, defaults.cards.qr.darkColor),
-    lightColor: color(merged.cards.qr.lightColor, defaults.cards.qr.lightColor),
+    ...premiumQr,
+    darkColor: premiumQr.foregroundColor,
+    lightColor: premiumQr.backgroundColor,
   };
   Object.keys(defaults.cards.vcf).forEach(key => normalized.cards.vcf[key] = flag(merged.cards.vcf[key], defaults.cards.vcf[key]));
   Object.keys(defaults.cards.slug).forEach(key => normalized.cards.slug[key] = flag(merged.cards.slug[key], defaults.cards.slug[key]));
@@ -233,7 +259,10 @@ export function validateSettings(input) {
   ["primaryColor", "accentColor", "lightBackground", "darkBackground", "neutralColor"].forEach(key => {
     if (!HEX_COLOR.test(String(input?.appearance?.[key] || ""))) errors.push({field: `appearance.${key}`, message: "Introduce un color hexadecimal válido."});
   });
-  ["darkColor", "lightColor"].forEach(key => {
+  const qrColorFields = Number(input?.version || 0) >= 2
+    ? ["foregroundColor", "backgroundColor", "accentColor"]
+    : ["darkColor", "lightColor"];
+  qrColorFields.forEach(key => {
     if (!HEX_COLOR.test(String(input?.cards?.qr?.[key] || ""))) errors.push({field: `cards.qr.${key}`, message: "Introduce un color hexadecimal válido."});
   });
   if (HEX_COLOR.test(String(input?.appearance?.primaryColor || "")) && colorContrast(settings.appearance.primaryColor, "#FFFFFF") < 4.5) {
@@ -252,8 +281,8 @@ export function validateSettings(input) {
     const url = new URL(settings.publicCard.companyUrl);
     if (!["http:", "https:"].includes(url.protocol)) throw new Error();
   } catch { errors.push({field: "publicCard.companyUrl", message: "La web corporativa debe ser una URL http o https válida."}); }
-  if (colorContrast(settings.cards.qr.darkColor, settings.cards.qr.lightColor) < 4.5) {
-    errors.push({field: "cards.qr.darkColor", message: "Los colores del QR necesitan un contraste mínimo de 4,5:1."});
+  if (colorContrast(settings.cards.qr.foregroundColor, settings.cards.qr.transparent ? "#FFFFFF" : settings.cards.qr.backgroundColor) < 4.5) {
+    errors.push({field: "cards.qr.foregroundColor", message: "Los colores del QR necesitan un contraste mínimo de 4,5:1."});
   }
   if (!settings.cards.slug.autoGenerate && !settings.cards.slug.allowManualEdit) {
     errors.push({field: "cards.slug.autoGenerate", message: "Activa la generación automática o permite editar el slug manualmente."});

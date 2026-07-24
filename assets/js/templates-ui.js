@@ -1,4 +1,4 @@
-import {cardService} from "./cards.js?v=1.7.0";
+import {cardService} from "./cards.js?v=1.8.0";
 import {renderCardPreview} from "./preview.js?v=1.7.0";
 import {CORPORATE_PRESETS,templateService,validateTemplateDraft} from "./templates-store.js?v=1.7.0";
 import {formatPersonName,formatSettingsDate} from "./settings-store.js";

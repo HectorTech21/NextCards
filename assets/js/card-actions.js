@@ -38,6 +38,8 @@ const ICONS = Object.freeze({
   },
   lock: {paths: ["M5 11h14v10H5z", "M8 11V7a4 4 0 0 1 8 0v4"]},
   check: {paths: ["M20 6 9 17l-5-5"]},
+  qr: {paths: ["M3 3h7v7H3z", "M14 3h7v7h-7z", "M3 14h7v7H3z", "M14 14h3v3h-3z", "M19 14h2v7h-4v-2h-3", "M19 19h2"]},
+  close: {paths: ["M18 6 6 18", "M6 6l12 12"]},
 });
 
 const feedbackTimers = new WeakMap();
