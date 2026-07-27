@@ -1,11 +1,13 @@
-import {cardService,isValidHttpUrl} from "./cards.js?v=1.8.0";
+import {cardService,isValidHttpUrl} from "./cards.js?v=1.9.0";
 import {getPublicCardUrl,getSourcedPublicCardUrl} from "./card-export.js";
 import {copyText,shareCard} from "./card-sharing.js?v=1.3.1";
 import {renderCardPreview} from "./preview.js?v=1.7.0";
 import {buildQrSvg,renderQrSvg} from "./qr-code.js?v=1.3.1";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.8.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.9.0";
 import {templateService} from "./templates-store.js?v=1.7.0";
 import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
+import {createCompletenessContext,evaluateCardCompleteness} from "./card-completeness.js?v=1.9.0";
+import {getPhotoVerificationStatuses,renderCompletenessDetails,reportPhotoVerification} from "./card-completeness-ui.js?v=1.9.0";
 
 const statusLabels = {active: "Activa", draft: "Borrador", disabled: "Desactivada"};
 const focusableSelector = 'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -44,12 +46,28 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("es-ES", {dateStyle: "medium", timeStyle: "short"}).format(date);
 }
 
+function renderQuickViewCompleteness(card) {
+  const cards = cardService.all();
+  const settings = settingsService.getSettings();
+  const context = createCompletenessContext({
+    cards,
+    templates: templateService.getTemplates(),
+    settings,
+    photoStatuses: getPhotoVerificationStatuses(),
+  });
+  renderCompletenessDetails(byId("quick-view-completeness"), evaluateCardCompleteness(card, context), {interactive: true});
+  callbacks.renderIcons(byId("quick-view-completeness"));
+}
+
 function setAvatar(card, displayName) {
   const holder = byId("quick-view-avatar");
   const fallback = () => holder.replaceChildren(node("span", "quick-view-initials", initials(card)));
   holder.replaceChildren();
   if (!card.photo) { fallback(); return; }
-  const image = createPhotoFrameImage(card.photo, {alt: `Foto de ${displayName}`, frame: card.photoFrame, legacyPosition: card.photoPosition, onError: fallback});
+  const updateQuality = valid => {
+    if (reportPhotoVerification(card.photo, valid) && activeCardId === card.id) renderQuickViewCompleteness(card);
+  };
+  const image = createPhotoFrameImage(card.photo, {alt: `Foto de ${displayName}`, frame: card.photoFrame, legacyPosition: card.photoPosition, onLoad: () => updateQuality(true), onError: () => {updateQuality(false); fallback();}});
   holder.append(image);
 }
 
@@ -157,6 +175,7 @@ function populate(card) {
   setAvatar(card, displayName);
   renderContacts(card);
   renderDetails(card, templateName, publicUrl);
+  renderQuickViewCompleteness(card);
   renderCardPreview(byId("quick-view-card-preview"), card);
   renderQr(card, settings, qrUrl, displayName);
   setUrlAvailability(Boolean(publicUrl));
@@ -265,6 +284,14 @@ async function handleAction(action) {
   }
 }
 
+function openCompletenessTarget(target) {
+  const card = currentCard();
+  if (!card || !target) return;
+  const id = card.id;
+  closeQuickView({restoreFocus: false, immediate: true});
+  callbacks.openEditor(id, {focusField: target});
+}
+
 export function setupQuickView({showToast, renderIconElements, openCardEditor, openPremiumQr} = {}) {
   callbacks = {
     showToast: showToast || callbacks.showToast,
@@ -276,6 +303,8 @@ export function setupQuickView({showToast, renderIconElements, openCardEditor, o
   initialized = true;
   const overlay = byId("quick-view-overlay");
   overlay.addEventListener("click", event => {
+    const qualityTarget = event.target.closest("[data-completeness-target]");
+    if (qualityTarget) { openCompletenessTarget(qualityTarget.dataset.completenessTarget); return; }
     const trigger = event.target.closest("[data-quick-view-action]");
     if (trigger) { handleAction(trigger.dataset.quickViewAction); return; }
     if (event.target === overlay) closeQuickView();

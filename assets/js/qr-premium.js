@@ -1,5 +1,5 @@
-import {cardService} from "./cards.js?v=1.8.0";
-import {settingsService} from "./settings-store.js?v=1.8.0";
+import {cardService} from "./cards.js?v=1.9.0";
+import {settingsService} from "./settings-store.js?v=1.9.0";
 import {
   DEFAULT_QR_STYLE,
   QR_PRESETS,

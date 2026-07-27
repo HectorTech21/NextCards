@@ -1,4 +1,4 @@
-import {DELETED_SEED_IDS_KEY, INITIAL_DATA_VERSION, SEED_VERSION_KEY, STORAGE_KEY, storage} from "./storage.js?v=1.8.0";
+import {DELETED_SEED_IDS_KEY, INITIAL_DATA_VERSION, SEED_VERSION_KEY, STORAGE_KEY, storage} from "./storage.js?v=1.9.0";
 import {TEMPLATES_DATA_VERSION, TEMPLATES_STORAGE_KEY, TEMPLATES_VERSION_KEY, templateService} from "./templates-store.js?v=1.7.0";
 import {ANALYTICS_EVENTS_KEY, ANALYTICS_SCHEMA_KEY, ANALYTICS_SCHEMA_VERSION} from "./analytics-store.js";
 import {
@@ -7,7 +7,7 @@ import {
   SETTINGS_STORAGE_KEY,
   settingsService,
   validateSettings,
-} from "./settings-store.js?v=1.8.0";
+} from "./settings-store.js?v=1.9.0";
 import {isValidPhotoFrame,normalizeCardPhotoFrame} from "./photo-frame.js?v=1.6.0";
 import {PHOTO_DB_NAME,PHOTO_SCHEMA_VERSION,canRenderPhoto,clearAllPhotos,isIndexedDbPhoto,pruneUnusedPhotos} from "./photo-storage.js?v=1.6.0";
 import {normalizeCardQrStyle,sanitizeQrStyle} from "./qr-premium-core.js?v=1.8.1";
@@ -43,7 +43,7 @@ function parseJson(value) {
 
 function validCard(card) {
   return card && typeof card === "object" && !Array.isArray(card)
-    && ["id", "slug", "firstName", "lastName", "jobTitle", "department", "email", "template"].every(key => String(card[key] || "").trim())
+    && ["id", "slug", "firstName", "lastName", "jobTitle", "email", "template"].every(key => String(card[key] || "").trim())
     && /^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/.test(card.slug)
     && ["active", "draft", "disabled"].includes(card.status)
     && ["website", "linkedin", "customLink"].every(key => isValidHttpUrl(card[key]))
@@ -313,7 +313,7 @@ export async function checkDataIntegrity({cards = storage.getCards(), templates 
   duplicateValues(cards, "slug").forEach(value => add("error", "DUPLICATE_SLUG", `Slug duplicado: ${value}.`, value));
   duplicateValues(templates, "id").forEach(value => add("error", "DUPLICATE_TEMPLATE_ID", `ID de plantilla duplicado: ${value}.`, value));
   const templateMap = new Map(templates.map(template => [template.id, template]));
-  const required = ["id", "slug", "firstName", "lastName", "jobTitle", "department", "email", "template"];
+  const required = ["id", "slug", "firstName", "lastName", "jobTitle", "email", "template"];
   for (const card of cards) {
     required.forEach(key => { if (!String(card?.[key] || "").trim()) add("error", "REQUIRED_FIELD", `Falta el campo obligatorio ${key}.`, card?.id || card?.slug || "sin-id"); });
     if (card.slug && !/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/.test(card.slug)) add("error", "INVALID_SLUG", "El slug contiene caracteres no permitidos.", card.id);

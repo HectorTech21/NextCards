@@ -1,4 +1,4 @@
-import {cardService} from "./cards.js?v=1.8.0";
+import {cardService} from "./cards.js?v=1.9.0";
 import {
   ANALYTICS_EVENT_TYPES,
   ANALYTICS_MAX_EVENTS,
@@ -21,8 +21,10 @@ import {
 import {generateAnalyticsDemoData} from "./analytics-demo.js";
 import {getSourcedPublicCardUrl} from "./card-export.js";
 import {templateService} from "./templates-store.js?v=1.7.0";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.8.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.9.0";
 import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
+import {buildCompletenessSummary,createCompletenessContext,evaluateCardsCompleteness} from "./card-completeness.js?v=1.9.0";
+import {getPhotoVerificationStatuses,renderCompletenessAnalytics} from "./card-completeness-ui.js?v=1.9.0";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SERIES = Object.freeze({
@@ -376,6 +378,10 @@ export function renderAnalyticsSection() {
   if (!state.initialized) return;
   refreshFilterOptions();
   state.cards = cardService.all();
+  const qualityContext = createCompletenessContext({cards: state.cards, templates: templateService.getTemplates(), settings: settingsService.getSettings(), photoStatuses: getPhotoVerificationStatuses()});
+  const qualityEvaluations = evaluateCardsCompleteness(state.cards, qualityContext);
+  renderCompletenessAnalytics(byId("card-quality-analytics"), buildCompletenessSummary(state.cards, qualityEvaluations));
+  state.renderIcons(byId("card-quality-analytics"));
   const read = analyticsRepository.read();
   state.rawEvents = read.events;
   const status = analyticsRepository.getStatus();

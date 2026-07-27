@@ -9,7 +9,7 @@ import {
   getDefaultSettings,
   settingsService,
   validateSettings,
-} from "./settings-store.js?v=1.8.0";
+} from "./settings-store.js?v=1.9.0";
 import {
   buildCardsCsv,
   buildTechnicalSummary,
@@ -249,6 +249,10 @@ function hydrateForm() {
   document.querySelectorAll("[data-color-for]").forEach(picker => {
     picker.value = getPath(draft, picker.dataset.colorFor) || "#000000";
   });
+  ["includeWebsite", "includeLinkedIn", "includePhone"].forEach(key => {
+    const control = document.querySelector(`[data-setting="completeness.${key}"]`);
+    if (control) control.disabled = !draft.completeness.evaluateRecommended;
+  });
   renderActionOrder();
   renderPreview();
   setDirtyState();
@@ -275,6 +279,12 @@ function controlValue(control) {
 function changeDraft(control) {
   const path = control.dataset.setting;
   setPath(draft, path, controlValue(control));
+  if (path === "completeness.evaluateRecommended") {
+    ["includeWebsite", "includeLinkedIn", "includePhone"].forEach(key => {
+      const related = document.querySelector(`[data-setting="completeness.${key}"]`);
+      if (related) related.disabled = !draft.completeness.evaluateRecommended;
+    });
+  }
   if (path === "cards.qr.preset" && QR_PRESETS[control.value]) {
     Object.assign(draft.cards.qr, QR_PRESETS[control.value], {
       preset: control.value,
@@ -320,6 +330,7 @@ function resetBlock(block) {
   if (block === "cards") {
     draft.cards = clone(defaults.cards);
     draft.publicCard = clone(defaults.publicCard);
+    draft.completeness = clone(defaults.completeness);
   } else draft[block] = clone(defaults[block]);
   renderTemplateOptions();
   hydrateForm();

@@ -1,13 +1,17 @@
-import {storage} from "./storage.js?v=1.8.0";
+import {storage} from "./storage.js?v=1.9.0";
 import {templateService} from "./templates-store.js?v=1.7.0";
-import {settingsService} from "./settings-store.js?v=1.8.0";
+import {settingsService} from "./settings-store.js?v=1.9.0";
 import {DEFAULT_PHOTO_FRAME,normalizeCardPhotoFrame} from "./photo-frame.js?v=1.6.0";
 import {deletePhotoIfUnused,normalizeCardPhotoFields} from "./photo-storage.js?v=1.6.0";
 import {normalizeCardQrStyle} from "./qr-premium-core.js?v=1.8.1";
 
 const uid=()=>globalThis.crypto?.randomUUID?.()||`card-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const stamp=()=>new Date().toISOString();
-const normalizeCard=card=>normalizeCardQrStyle(normalizeCardPhotoFields(normalizeCardPhotoFrame(card)));
+const normalizeCard=card=>{
+  const normalized=normalizeCardQrStyle(normalizeCardPhotoFields(normalizeCardPhotoFrame(card)));
+  ["score","completion","completionScore","completeness","completenessScore","qualityScore","cardHealth"].forEach(key=>delete normalized[key]);
+  return normalized;
+};
 
 export const createCardId=()=>uid();
 

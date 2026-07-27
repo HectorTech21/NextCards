@@ -1,18 +1,30 @@
-import {storage} from "./storage.js?v=1.8.0";
-import {cardService} from "./cards.js?v=1.8.0";
-import {setupEditor,openEditor,deleteFromDashboard} from "./editor.js?v=1.8.4";
+import {storage} from "./storage.js?v=1.9.0";
+import {cardService} from "./cards.js?v=1.9.0";
+import {setupEditor,openEditor,deleteFromDashboard} from "./editor.js?v=1.9.0";
 import {getSourcedPublicCardUrl} from "./card-export.js";
 import {copyText} from "./card-sharing.js?v=1.3.1";
-import {openQuickView,refreshQuickView,setupQuickView} from "./quick-view.js?v=1.8.0";
+import {openQuickView,refreshQuickView,setupQuickView} from "./quick-view.js?v=1.9.0";
 import {setupTemplatesUI,renderTemplatesSection} from "./templates-ui.js?v=1.7.0";
 import {templateService} from "./templates-store.js?v=1.7.0";
-import {setupAnalyticsUI,renderAnalyticsSection} from "./analytics-ui.js?v=1.7.0";
-import {applySettingsToDocument,formatPersonName,getDefaultSettings,settingsService} from "./settings-store.js?v=1.8.0";
+import {setupAnalyticsUI,renderAnalyticsSection} from "./analytics-ui.js?v=1.9.0";
+import {applySettingsToDocument,formatPersonName,getDefaultSettings,settingsService} from "./settings-store.js?v=1.9.0";
 import {isSettingsDirty,renderSettingsSection,requestSettingsLeave,setupSettingsUI} from "./settings-ui.js?v=1.8.0";
 import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
 import {clearAllPhotos,pruneUnusedPhotos} from "./photo-storage.js?v=1.6.0";
-import {CARDS_VIEW_STORAGE_KEY,DEFAULT_LIST_SORT,readCardsViewMode,sortCardsForList,writeCardsViewMode} from "./cards-view.js?v=1.5.0";
+import {CARDS_VIEW_STORAGE_KEY,DEFAULT_LIST_SORT,readCardsViewMode,sortCardsForList,writeCardsViewMode} from "./cards-view.js?v=1.9.0";
 import {openQrPremium,setupQrPremium} from "./qr-premium.js?v=1.8.4";
+import {
+  buildCompletenessSummary,
+  createCompletenessContext,
+  evaluateCardsCompleteness,
+  filterCardsByCompleteness,
+} from "./card-completeness.js?v=1.9.0";
+import {
+  createCompletenessIndicator,
+  getPhotoVerificationStatuses,
+  renderCompletenessSummary,
+  reportPhotoVerification,
+} from "./card-completeness-ui.js?v=1.9.0";
 
 const iconPaths={
   cards:"M4 4h16v16H4z M8 8h8 M8 12h6",people:"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75",
@@ -45,6 +57,7 @@ window.NextCardsIcons={render:renderIcons,make:makeIcon};
 
 const grid=document.querySelector("#card-grid"),empty=document.querySelector("#empty-state"),search=document.querySelector("#global-search");
 const department=document.querySelector("#department-filter"),statusFilter=document.querySelector("#status-filter"),sidebar=document.querySelector("#sidebar");
+const qualityFilter=document.querySelector("#quality-filter"),cardsSort=document.querySelector("#cards-sort");
 const statusLabels={active:"Activa",draft:"Borrador",disabled:"Desactivada"};
 const initials=card=>`${card.firstName?.[0]||""}${card.lastName?.[0]||""}`.toUpperCase();
 const node=(tag,className,text)=>{const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el};
@@ -52,6 +65,8 @@ const readSettings=()=>{try{return settingsService.getSettings()}catch(error){co
 let currentSection="cards";
 let cardsViewMode=readCardsViewMode();
 let listSort={...DEFAULT_LIST_SORT};
+let currentCompleteness=new Map();
+let dashboardRefreshQueued=false;
 
 function applyAppSettings(settings=readSettings()){
   applySettingsToDocument(settings);
@@ -61,6 +76,12 @@ function applyAppSettings(settings=readSettings()){
 export function showToast(message,type="success"){
   const toast=node("div",`toast ${type}`);toast.setAttribute("role",type==="error"?"alert":"status");toast.append(makeIcon(type==="error"?"bell":"check"),document.createTextNode(message));document.querySelector("#toast-region").append(toast);
   setTimeout(()=>toast.remove(),3200);
+}
+
+function recordPhotoQuality(reference,valid){
+  if(!reportPhotoVerification(reference,valid)||dashboardRefreshQueued)return;
+  dashboardRefreshQueued=true;
+  requestAnimationFrame(()=>{dashboardRefreshQueued=false;renderDashboard()});
 }
 
 function createButton(label,className,action,id,icon){
@@ -83,7 +104,7 @@ function createCardMenu(card,displayName,entries,context){
   return {menuButton,menu};
 }
 
-function createCard(card,settings){
+function createCard(card,settings,completeness){
   const displayName=formatPersonName(card,settings);
   const article=node("article","employee-card"),cover=node("div","employee-cover");
   cover.dataset.cardMenuHost="";
@@ -91,9 +112,9 @@ function createCard(card,settings){
   const logo=node("img","employee-logo");logo.src="assets/img/logos/lognext-negative.svg";logo.alt="";logo.decoding="async";logo.addEventListener("error",()=>logo.remove(),{once:true});
   const {menuButton,menu}=createCardMenu(card,displayName,[["Vista rápida","quick-view"],["Descargar QR","qr-premium"],["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]],"grid");
   cover.append(quickTrigger,logo,menuButton,menu);
-  if(card.photo&&card.visibleFields?.photo!==false){const frame=node("div","employee-photo");const img=createPhotoFrameImage(card.photo,{alt:`Foto de ${displayName}`,frame:card.photoFrame,legacyPosition:card.photoPosition,loading:"lazy",onError:()=>frame.replaceWith(node("div","employee-initials",initials(card)))});frame.append(img);cover.append(frame)}else cover.append(node("div","employee-initials",initials(card)));
+  if(card.photo&&card.visibleFields?.photo!==false){const frame=node("div","employee-photo");const img=createPhotoFrameImage(card.photo,{alt:`Foto de ${displayName}`,frame:card.photoFrame,legacyPosition:card.photoPosition,loading:"lazy",onLoad:()=>recordPhotoQuality(card.photo,true),onError:()=>{recordPhotoQuality(card.photo,false);frame.replaceWith(node("div","employee-initials",initials(card)))}});frame.append(img);cover.append(frame)}else cover.append(node("div","employee-initials",initials(card)));
   const info=node("div","employee-info"),top=node("div","employee-info-top");
-  top.append(node("span",`status status-${card.status}`,statusLabels[card.status]||card.status));
+  top.append(node("span",`status status-${card.status}`,statusLabels[card.status]||card.status),createCompletenessIndicator(completeness,{cardId:card.id,interactive:true,compact:true}));
   const template=templateService.resolveTemplate(card.template,{warn:false});
   info.append(top,node("h3","",displayName),node("p","role",card.jobTitle),node("p","department",card.department),node("p","card-template-name",`Plantilla · ${template.name}`));
   const contacts=node("div","card-contact-preview");
@@ -124,13 +145,13 @@ function createListAvatar(card,displayName){
   const holder=node("span","cards-list-avatar");
   const fallback=()=>holder.replaceChildren(node("span","cards-list-initials",initials(card)||"LN"));
   if(!card.photo||card.visibleFields?.photo===false){fallback();return holder}
-  const image=createPhotoFrameImage(card.photo,{alt:`Foto de ${displayName}`,frame:card.photoFrame,legacyPosition:card.photoPosition,loading:"lazy",onError:fallback});
+  const image=createPhotoFrameImage(card.photo,{alt:`Foto de ${displayName}`,frame:card.photoFrame,legacyPosition:card.photoPosition,loading:"lazy",onLoad:()=>recordPhotoQuality(card.photo,true),onError:()=>{recordPhotoQuality(card.photo,false);fallback()}});
   holder.append(image);return holder;
 }
 
 function createListCell(className,label){const cell=node("td",className);cell.dataset.label=label;return cell}
 
-function createListRow(card,settings){
+function createListRow(card,settings,completeness){
   const displayName=formatPersonName(card,settings)||"Persona sin nombre";
   const row=node("tr","cards-list-row");row.dataset.cardId=card.id;row.tabIndex=0;row.setAttribute("aria-label",`Tarjeta de ${displayName}. Pulsa Intro para abrir la vista rápida.`);
 
@@ -147,6 +168,8 @@ function createListRow(card,settings){
 
   const status=createListCell("cards-list-status","Estado"),knownStatus=Boolean(statusLabels[card.status]);
   status.append(node("span",`status status-${knownStatus?card.status:"unknown"}`,knownStatus?statusLabels[card.status]:"Sin estado"));
+  const quality=createListCell("cards-list-completeness","Completitud");
+  quality.append(createCompletenessIndicator(completeness,{cardId:card.id,interactive:true,compact:true}));
   const template=createListCell("cards-list-template","Plantilla");
   template.append(node("span","cards-list-template-badge",templateService.getTemplateById(card.template)?.name||"Predeterminada"));
   const updated=createListCell("cards-list-updated","Última actualización");updated.append(node("time","",formatListDate(card.updatedAt,settings)));
@@ -157,7 +180,7 @@ function createListRow(card,settings){
   const edit=createButton("","button button-primary list-primary-action","edit",card.id,"edit");edit.title="Editar";edit.setAttribute("aria-label",`Editar tarjeta de ${displayName}`);edit.append(node("span","list-action-label","Editar"));
   const {menuButton,menu}=createCardMenu(card,displayName,[["Ver tarjeta","view"],["Copiar enlace","copy"],["Descargar QR","qr-premium"],["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]],"list");
   menuButton.classList.add("list-card-menu-button");actions.append(quick,edit,menuButton,menu);actionCell.append(actions);
-  row.append(person,role,team,email,status,template,updated,actionCell);return row;
+  row.append(person,role,team,email,status,quality,template,updated,actionCell);return row;
 }
 
 function createSortableHeader(label,key,className){
@@ -167,7 +190,7 @@ function createSortableHeader(label,key,className){
   button.append(document.createTextNode(label),makeIcon("sort"));header.append(button);return header;
 }
 
-function createCardsList(cards,settings){
+function createCardsList(cards,settings,evaluations){
   const table=node("table","cards-list-table");table.append(node("caption","sr-only",`Directorio de ${cards.length} tarjetas`));
   const head=node("thead"),headRow=node("tr");
   headRow.append(
@@ -177,10 +200,11 @@ function createCardsList(cards,settings){
   );
   const email=node("th","cards-list-email","Email");email.scope="col";headRow.append(email);
   headRow.append(createSortableHeader("Estado","status","cards-list-status"));
+  headRow.append(createSortableHeader("Completitud","completeness","cards-list-completeness"));
   const template=node("th","cards-list-template","Plantilla");template.scope="col";headRow.append(template);
   headRow.append(createSortableHeader("Última actualización","updatedAt","cards-list-updated"));
   const actions=node("th","cards-list-actions-cell","Acciones");actions.scope="col";headRow.append(actions);head.append(headRow);
-  const body=node("tbody");cards.forEach(card=>body.append(createListRow(card,settings)));table.append(head,body);return table;
+  const body=node("tbody");cards.forEach(card=>body.append(createListRow(card,settings,evaluations.get(card.id))));table.append(head,body);return table;
 }
 
 function refreshDepartments(){
@@ -191,21 +215,28 @@ function refreshDepartments(){
 
 function renderDashboard(){
   const settings=readSettings();
-  const filteredCards=cardService.query({search:search.value,department:department.value,status:statusFilter.value});
-  const cards=cardsViewMode==="list"?sortCardsForList(filteredCards,listSort,{getName:card=>formatPersonName(card,settings)}):filteredCards;
-  const all=cardService.all();document.querySelector("#active-count").textContent=all.filter(c=>c.status==="active").length;document.querySelector("#draft-count").textContent=all.filter(c=>c.status==="draft").length;document.querySelector("#total-count").textContent=all.length;
+  const all=cardService.all();
+  const completenessContext=createCompletenessContext({cards:all,templates:templateService.getTemplates(),settings,photoStatuses:getPhotoVerificationStatuses()});
+  currentCompleteness=evaluateCardsCompleteness(all,completenessContext);
+  const queriedCards=cardService.query({search:search.value,department:department.value,status:statusFilter.value});
+  const filteredCards=filterCardsByCompleteness(queriedCards,qualityFilter.value,currentCompleteness);
+  const selectedSort=cardsSort.value==="default"?listSort:(()=>{const [key,direction]=cardsSort.value.split(":");return {key,direction}})();
+  const shouldSort=cardsViewMode==="list"||cardsSort.value!=="default";
+  const cards=shouldSort?sortCardsForList(filteredCards,selectedSort,{getName:card=>formatPersonName(card,settings),getCompleteness:card=>currentCompleteness.get(card.id)?.score||0}):filteredCards;
+  renderCompletenessSummary(document.querySelector("#card-quality-summary"),buildCompletenessSummary(all,currentCompleteness));
+  document.querySelector("#active-count").textContent=all.filter(c=>c.status==="active").length;document.querySelector("#draft-count").textContent=all.filter(c=>c.status==="draft").length;document.querySelector("#total-count").textContent=all.length;
   document.querySelector("#results-label").textContent=`${cards.length} de ${all.length} tarjetas`;
   document.querySelectorAll("[data-view-mode]").forEach(button=>{const selected=button.dataset.viewMode===cardsViewMode;button.setAttribute("aria-pressed",String(selected));button.classList.toggle("is-active",selected)});
   grid.className=`cards-directory ${cardsViewMode==="grid"?"card-grid":"cards-list"}`;grid.dataset.viewMode=cardsViewMode;grid.setAttribute("aria-label",`Tarjetas en vista ${cardsViewMode==="grid"?"cuadrícula":"lista"}`);grid.replaceChildren();
   if(cardsViewMode==="grid"){
-    if(!search.value&&!department.value&&!statusFilter.value)grid.append(createNewTile());
-    cards.forEach(card=>grid.append(createCard(card,settings)));
-  }else if(cards.length)grid.append(createCardsList(cards,settings));
+    if(!search.value&&!department.value&&!statusFilter.value&&qualityFilter.value==="all")grid.append(createNewTile());
+    cards.forEach(card=>grid.append(createCard(card,settings,currentCompleteness.get(card.id))));
+  }else if(cards.length)grid.append(createCardsList(cards,settings,currentCompleteness));
   const hasContent=cardsViewMode==="grid"?Boolean(cards.length||grid.children.length):Boolean(cards.length);
-  const hasFilters=Boolean(search.value||department.value||statusFilter.value);
+  const hasFilters=Boolean(search.value||department.value||statusFilter.value||qualityFilter.value!=="all");
   empty.querySelector("h3").textContent=!all.length?"Todavía no hay tarjetas":"No hay tarjetas que coincidan";
   empty.querySelector("p").textContent=!all.length?"Crea la primera tarjeta para empezar el directorio.":hasFilters?"Prueba otra búsqueda o ajusta los filtros.":"Crea una nueva tarjeta para empezar.";
-  empty.hidden=hasContent;grid.hidden=!hasContent;renderIcons(grid);
+  empty.hidden=hasContent;grid.hidden=!hasContent;renderIcons(grid);renderIcons(document.querySelector("#card-quality-summary"));
 }
 
 function setCardsViewMode(mode){
@@ -215,7 +246,9 @@ function setCardsViewMode(mode){
 
 function updateListSort(key){
   const direction=listSort.key===key&&listSort.direction==="asc"?"desc":"asc";
-  listSort={key,direction};renderDashboard();
+  listSort={key,direction};
+  const selectorValue=`${key}:${direction}`;cardsSort.value=[...cardsSort.options].some(option=>option.value===selectorValue)?selectorValue:"default";
+  renderDashboard();
   requestAnimationFrame(()=>grid.querySelector(`[data-sort-key="${key}"]`)?.focus());
 }
 
@@ -286,11 +319,18 @@ setupSettingsUI({showToast,renderIconElements:renderIcons,onSettingsApplied:()=>
 applyAppSettings();renderIcons();refreshDepartments();renderDashboard();
 if(storage.consumeReadError?.())showToast("No se han podido leer los datos locales. Importa una copia o restaura los datos iniciales.","error");
 document.addEventListener("click",event=>{
+  const qualitySummary=event.target.closest("[data-quality-summary-filter]");
+  if(qualitySummary){qualityFilter.value=qualitySummary.dataset.qualitySummaryFilter;renderDashboard()}
   const trigger=event.target.closest("[data-action]");if(trigger)void handleAction(trigger.dataset.action,trigger.dataset.id,trigger);
   if(!event.target.closest(".card-menu-button")&&!event.target.closest(".card-menu"))closeCardMenus();
   if(!event.target.closest("#data-menu-button")&&!event.target.closest("#data-menu")){document.querySelector("#data-menu").hidden=true;document.querySelector("#data-menu-button").setAttribute("aria-expanded","false")}
 });
-[search,department,statusFilter].forEach(control=>control.addEventListener(control===search?"input":"change",renderDashboard));
+[search,department,statusFilter,qualityFilter].forEach(control=>control.addEventListener(control===search?"input":"change",renderDashboard));
+cardsSort.addEventListener("change",()=>{
+  if(cardsSort.value==="default")listSort={...DEFAULT_LIST_SORT};
+  else{const [key,direction]=cardsSort.value.split(":");listSort={key,direction}}
+  renderDashboard();
+});
 grid.addEventListener("keydown",event=>{
   const row=event.target.closest(".cards-list-row");if(!row||event.target!==row||!["Enter"," "].includes(event.key))return;
   event.preventDefault();void handleAction("quick-view",row.dataset.cardId,row);

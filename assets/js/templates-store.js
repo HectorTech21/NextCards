@@ -1,5 +1,5 @@
-import {storage} from "./storage.js";
-import {settingsService} from "./settings-store.js";
+import {storage} from "./storage.js?v=1.9.0";
+import {settingsService} from "./settings-store.js?v=1.9.0";
 
 export const TEMPLATES_STORAGE_KEY = "nextcards.templates.v1";
 export const TEMPLATES_VERSION_KEY = "nextcards.templates.seed.version";

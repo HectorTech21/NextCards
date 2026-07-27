@@ -3,7 +3,7 @@ export const DEFAULT_CARDS_VIEW_MODE = "grid";
 export const DEFAULT_LIST_SORT = Object.freeze({key: "name", direction: "asc"});
 
 const VIEW_MODES = new Set(["grid", "list"]);
-const SORT_KEYS = new Set(["name", "jobTitle", "department", "status", "updatedAt"]);
+const SORT_KEYS = new Set(["name", "jobTitle", "department", "status", "updatedAt", "completeness"]);
 const DIRECTIONS = new Set(["asc", "desc"]);
 const STATUS_ORDER = {active: 0, draft: 1, disabled: 2};
 const collator = new Intl.Collator("es", {sensitivity: "base", numeric: true});
@@ -46,10 +46,11 @@ function dateValue(value) {
   return Number.isFinite(timestamp) ? timestamp : null;
 }
 
-function valueFor(card, key, getName) {
+function valueFor(card, key, getName, getCompleteness) {
   if (key === "name") return text(getName(card));
   if (key === "status") return STATUS_ORDER[card?.status] ?? 99;
   if (key === "updatedAt") return dateValue(card?.updatedAt);
+  if (key === "completeness") return Number(getCompleteness(card) ?? 0);
   return text(card?.[key]);
 }
 
@@ -63,10 +64,13 @@ function compareValues(first, second, direction) {
   return direction === "desc" ? -comparison : comparison;
 }
 
-export function sortCardsForList(cards = [], value = DEFAULT_LIST_SORT, {getName = card => `${text(card?.firstName)} ${text(card?.lastName)}`.trim()} = {}) {
+export function sortCardsForList(cards = [], value = DEFAULT_LIST_SORT, {
+  getName = card => `${text(card?.firstName)} ${text(card?.lastName)}`.trim(),
+  getCompleteness = () => 0,
+} = {}) {
   const sort = normalizeListSort(value);
   return [...cards].sort((first, second) => {
-    const primary = compareValues(valueFor(first, sort.key, getName), valueFor(second, sort.key, getName), sort.direction);
+    const primary = compareValues(valueFor(first, sort.key, getName, getCompleteness), valueFor(second, sort.key, getName, getCompleteness), sort.direction);
     if (primary) return primary;
     const byName = collator.compare(text(getName(first)), text(getName(second)));
     return byName || collator.compare(text(first?.id), text(second?.id));

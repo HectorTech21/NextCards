@@ -1,8 +1,9 @@
 import {QR_PRESETS,sanitizeQrStyle} from "./qr-premium-core.js?v=1.8.1";
+import {normalizeCompletenessCriteria} from "./card-completeness.js?v=1.9.0";
 
 export const SETTINGS_STORAGE_KEY = "nextcards.settings.v1";
-export const SETTINGS_SCHEMA_VERSION = 2;
-export const NEXTCARDS_VERSION = "1.8.0";
+export const SETTINGS_SCHEMA_VERSION = 3;
+export const NEXTCARDS_VERSION = "1.9.0";
 
 export const LOGO_RESOURCES = Object.freeze({
   "symbol-negative": {label: "Símbolo", path: "assets/img/logos/lognext-symbol-negative.svg"},
@@ -112,6 +113,7 @@ function createDefaults() {
         showQr: true,
       },
     },
+    completeness: normalizeCompletenessCriteria(),
     privacy: {
       hideEmailsInDashboard: false,
       hidePhonesInDashboard: false,
@@ -220,6 +222,7 @@ export function mergeWithDefaults(input = {}) {
     buttons: {},
   };
   Object.keys(defaults.publicCard.buttons).forEach(key => normalized.publicCard.buttons[key] = flag(merged.publicCard.buttons[key], defaults.publicCard.buttons[key]));
+  normalized.completeness = normalizeCompletenessCriteria(merged.completeness);
   Object.keys(defaults.privacy).forEach(key => normalized.privacy[key] = flag(merged.privacy[key], defaults.privacy[key]));
   normalized.updatedAt = Number.isNaN(new Date(merged.updatedAt).getTime()) ? "" : new Date(merged.updatedAt).toISOString();
   return normalized;
@@ -286,6 +289,10 @@ export function validateSettings(input) {
   }
   if (!settings.cards.slug.autoGenerate && !settings.cards.slug.allowManualEdit) {
     errors.push({field: "cards.slug.autoGenerate", message: "Activa la generación automática o permite editar el slug manualmente."});
+  }
+  const completenessThreshold = Number(input?.completeness?.completeThreshold ?? settings.completeness.completeThreshold);
+  if (!Number.isFinite(completenessThreshold) || completenessThreshold < 80 || completenessThreshold > 100) {
+    errors.push({field: "completeness.completeThreshold", message: "El umbral de tarjeta completa debe estar entre 80 y 100."});
   }
   return {settings, errors};
 }

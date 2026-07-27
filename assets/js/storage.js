@@ -19,7 +19,11 @@ function clone(value) {
 }
 
 function normalizeCards(cards) {
-  return cards.map(card => normalizeCardQrStyle(normalizeCardPhotoFields(normalizeCardPhotoFrame(card))));
+  return cards.map(card => {
+    const normalized = normalizeCardQrStyle(normalizeCardPhotoFields(normalizeCardPhotoFrame(card)));
+    ["score", "completion", "completionScore", "completeness", "completenessScore", "qualityScore", "cardHealth"].forEach(key => delete normalized[key]);
+    return normalized;
+  });
 }
 
 function normalize(value = "") {
@@ -208,7 +212,7 @@ export const storage = {
     catch { throw new Error("El archivo JSON no se puede leer. Revisa su formato e inténtalo de nuevo."); }
     if (!Array.isArray(parsed)) throw new Error("El archivo debe contener una lista de tarjetas.");
     if (!parsed.length) throw new Error("El archivo no contiene ninguna tarjeta.");
-    const required = ["id", "slug", "firstName", "lastName", "jobTitle", "department", "email", "template"];
+    const required = ["id", "slug", "firstName", "lastName", "jobTitle", "email", "template"];
     const slugPattern = /^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/;
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const validUrl = value => { if (!value) return true; try { return ["http:", "https:"].includes(new URL(value).protocol); } catch { return false; } };

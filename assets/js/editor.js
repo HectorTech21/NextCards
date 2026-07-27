@@ -1,9 +1,9 @@
-import {cardService,createCardId,emptyCard,normalizeSlug,sanitizePhone,isValidHttpUrl} from "./cards.js?v=1.8.0";
-import {storage} from "./storage.js?v=1.8.0";
+import {cardService,createCardId,emptyCard,normalizeSlug,sanitizePhone,isValidHttpUrl} from "./cards.js?v=1.9.0";
+import {storage} from "./storage.js?v=1.9.0";
 import {renderCardPreview} from "./preview.js?v=1.7.0";
 import {templateService} from "./templates-store.js?v=1.7.0";
 import {getSourcedPublicCardUrl} from "./card-export.js";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.8.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.9.0";
 import {DEFAULT_PHOTO_FRAME,createPhotoFrameImage,normalizePhotoFrame} from "./photo-frame.js?v=1.6.0";
 import {closePhotoFrameEditor,isPhotoFrameEditorOpen,openPhotoFrameEditor,setupPhotoFrameEditor} from "./photo-frame-editor.js?v=1.6.0";
 import {
@@ -20,6 +20,8 @@ import {
   verifyPhotoBlob,
 } from "./photo-storage.js?v=1.6.0";
 import {openQrPremium} from "./qr-premium.js?v=1.8.4";
+import {createCompletenessContext,evaluateCardCompleteness} from "./card-completeness.js?v=1.9.0";
+import {getPhotoVerificationStatuses,renderCompletenessDetails,reportPhotoVerification} from "./card-completeness-ui.js?v=1.9.0";
 
 const overlay=document.querySelector("#editor-overlay");
 const dialog=document.querySelector(".editor-dialog");
@@ -168,7 +170,8 @@ function updatePhoto({photoFrame=temporaryPhotoFrame||currentPhotoFrame}={}){
   photoPreview.replaceChildren();
   const source=previewPhotoSource();
   if(source){
-    const img=createPhotoFrameImage(source,{alt:"Vista previa de la fotografía",frame:photoFrame,onLoad:()=>setPhotoWarning(),onError:()=>{renderPhotoPlaceholder();setPhotoWarning("No se ha podido cargar la fotografía. Puedes eliminarla o seleccionar otro archivo.")}});photoPreview.append(img);
+    const updateQuality=valid=>{if(reportPhotoVerification(source,valid))renderEditorCompleteness()};
+    const img=createPhotoFrameImage(source,{alt:"Vista previa de la fotografía",frame:photoFrame,onLoad:()=>{setPhotoWarning();updateQuality(true)},onError:()=>{updateQuality(false);renderPhotoPlaceholder();setPhotoWarning("No se ha podido cargar la fotografía. Puedes eliminarla o seleccionar otro archivo.")}});photoPreview.append(img);
   }else{renderPhotoPlaceholder();setPhotoWarning()}
   removePhotoButton.hidden=!source;
   adjustPhotoFrameButton.hidden=!source;
@@ -187,8 +190,28 @@ function setDirty(value,message="Cambios sin guardar"){
   indicator.classList.toggle("saved",!value);
 }
 
+function renderEditorCompleteness(){
+  const data=formData();
+  const existingId=form.elements.id.value;
+  const draftCard={...data,id:existingId};
+  const cards=cardService.all();
+  const contextualCards=existingId
+    ? cards.map(card=>card.id===existingId?draftCard:card)
+    : [...cards,{...draftCard,id:"__editor-draft__"}];
+  const context=createCompletenessContext({
+    cards:contextualCards,
+    templates:templateService.getTemplates(),
+    settings:editorSettings,
+    photoStatuses:getPhotoVerificationStatuses(),
+    allowGeneratedId:!existingId,
+  });
+  renderCompletenessDetails(document.querySelector("#editor-completeness"),evaluateCardCompleteness(draftCard,context),{interactive:true,showCompleted:false});
+  window.NextCardsIcons?.render(document.querySelector("#editor-completeness"));
+}
+
 function refreshPreview({markDirty=true,message,photoFrame=temporaryPhotoFrame||currentPhotoFrame}={}){
   renderCardPreview(preview,formData({photoFrame}));
+  renderEditorCompleteness();
   updateCharacterCounts();
   if(markDirty)setDirty(true,message);
 }
@@ -216,7 +239,7 @@ function fieldError(name,message){
 }
 
 function validationMessage(name,data=formData()){
-  const required={firstName:"Indica el nombre.",lastName:"Indica los apellidos.",jobTitle:"Indica el puesto.",department:"Indica el departamento.",cardName:"Indica un nombre interno.",slug:"Indica una URL pública.",email:"Indica un email válido."};
+  const required={firstName:"Indica el nombre.",lastName:"Indica los apellidos.",jobTitle:"Indica el puesto.",cardName:"Indica un nombre interno.",slug:"Indica una URL pública.",email:"Indica un email válido."};
   const field=form.elements.namedItem(name);
   if(required[name]&&(!String(data[name]||"").trim()||!field.checkValidity()))return required[name];
   if(name==="slug"&&data.slug!==normalizeSlug(data.slug,editorSettings.cards.slug))return editorSettings.cards.slug.lowercase?"Usa sólo minúsculas, números y guiones.":"Usa sólo letras, números y guiones.";
@@ -281,6 +304,25 @@ function trapEditorFocus(event){
   else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
 }
 
+function focusCompletenessTarget(target){
+  const special={
+    photo:photoUploadLabel,
+    template:document.querySelector('#card-template-picker input[name="template"]:checked')||document.querySelector('#card-template-picker input[name="template"]'),
+    visibleFields:document.querySelector(".visibility-list input"),
+    actions:document.querySelector(".visibility-list input"),
+    id:form.elements.slug,
+  };
+  const field=special[target]||form.elements.namedItem(target);
+  if(!field)return false;
+  document.querySelectorAll("[data-editor-tab]").forEach(tab=>tab.setAttribute("aria-selected",String(tab.dataset.editorTab==="form")));
+  document.querySelector(".editor-body").classList.remove("show-preview");
+  const highlight=field.closest(".photo-field,.form-field,label,fieldset")||field;
+  highlight.classList.remove("completeness-target-highlight");
+  field.scrollIntoView({block:"center",behavior:globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches?"auto":"smooth"});
+  requestAnimationFrame(()=>{highlight.classList.add("completeness-target-highlight");field.focus({preventScroll:true});setTimeout(()=>highlight.classList.remove("completeness-target-highlight"),1900)});
+  return true;
+}
+
 async function handlePhotoSelection(file,input){
   if(!file||photoProcessing)return;
   const token=++photoProcessToken;setPhotoWarning();setPhotoStatus("Procesando imagen…","processing");setEditorBusy(true,{processing:true});
@@ -330,6 +372,8 @@ export function setupEditor({onChange,showToast}={}){
   form.elements.photoFile.addEventListener("change",event=>{const file=event.target.files[0];if(file)void handlePhotoSelection(file,event.target)});
   photoUploadLabel.addEventListener("keydown",event=>{if(!photoProcessing&&!saveInProgress&&["Enter"," "].includes(event.key)){event.preventDefault();form.elements.photoFile.click()}});
   dialog.addEventListener("click",event=>{
+    const qualityTarget=event.target.closest("[data-completeness-target]");
+    if(qualityTarget){focusCompletenessTarget(qualityTarget.dataset.completenessTarget);return}
     const action=event.target.closest("[data-action]")?.dataset.action;
     if(action==="close-editor")closeEditor();
     if(action==="save-draft")void save("draft");
@@ -419,11 +463,12 @@ function openPremiumQr(opener){
   });
 }
 
-export function openEditor(id="",{focusTemplate=false}={}){
+export function openEditor(id="",{focusTemplate=false,focusField=""}={}){
   if(isPhotoFrameEditorOpen())closePhotoFrameEditor();
   const card=id?cardService.get(id):emptyCard();if(!card){toast("No se ha encontrado la tarjeta.","error");return}
   previousEditorFocus=document.activeElement;populate(card);overlay.hidden=false;document.body.style.overflow="hidden";
   setTimeout(()=>{
+    if(focusField){focusCompletenessTarget(focusField);return}
     if(!focusTemplate){form.elements.firstName.focus();return}
     const picker=document.querySelector("#card-template-picker");picker.classList.add("template-picker-highlight");picker.scrollIntoView({block:"center",behavior:"smooth"});picker.querySelector('input[name="template"]:checked')?.focus();setTimeout(()=>picker.classList.remove("template-picker-highlight"),1800);
   },50);
