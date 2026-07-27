@@ -4,7 +4,7 @@ import {setupEditor,openEditor,deleteFromDashboard} from "./editor.js?v=1.9.0";
 import {getSourcedPublicCardUrl} from "./card-export.js";
 import {copyText} from "./card-sharing.js?v=1.3.1";
 import {openQuickView,refreshQuickView,setupQuickView} from "./quick-view.js?v=1.9.0";
-import {setupTemplatesUI,renderTemplatesSection} from "./templates-ui.js?v=1.7.0";
+import {setupTemplatesUI,renderTemplatesSection} from "./templates-ui.js?v=1.8.0";
 import {templateService} from "./templates-store.js?v=1.7.0";
 import {setupAnalyticsUI,renderAnalyticsSection} from "./analytics-ui.js?v=1.9.0";
 import {applySettingsToDocument,formatPersonName,getDefaultSettings,settingsService} from "./settings-store.js?v=1.9.0";
@@ -27,7 +27,7 @@ import {
 } from "./card-completeness-ui.js?v=1.9.0";
 
 const iconPaths={
-  cards:"M4 4h16v16H4z M8 8h8 M8 12h6",people:"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75",
+  cards:"M4 4h16v16H4z M8 8h8 M8 12h6",
   layout:"M3 3h18v18H3z M3 9h18 M9 21V9",chart:"M3 3v18h18 M7 16l4-5 4 3 5-7",settings:"M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7 M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-2 3.46-.08-.03a1.65 1.65 0 0 0-1.88.24 1.65 1.65 0 0 0-.5 1.25V22h-4v-.1a1.65 1.65 0 0 0-.5-1.25 1.65 1.65 0 0 0-1.88-.24l-.08.03-2-3.46.06-.06A1.65 1.65 0 0 0 7.2 15a1.65 1.65 0 0 0-1.2-.72H6v-4h.1A1.65 1.65 0 0 0 7.2 9a1.65 1.65 0 0 0-.27-1.82l-.06-.06 2-3.46.08.03a1.65 1.65 0 0 0 1.88-.24 1.65 1.65 0 0 0 .5-1.25V2h4v.1a1.65 1.65 0 0 0 .5 1.25 1.65 1.65 0 0 0 1.88.24l.08-.03 2 3.46-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.2.72h.1v4h-.1a1.65 1.65 0 0 0-1.2.72z",
   menu:"M4 6h16 M4 12h16 M4 18h16",search:"M21 21l-4.35-4.35 M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0",bell:"M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M13.7 21a2 2 0 0 1-3.4 0",plus:"M12 5v14 M5 12h14",check:"M20 6 9 17l-5-5",edit:"M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z",users:"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75",
   database:"M12 2c5 0 9 1.8 9 4s-4 4-9 4-9-1.8-9-4 4-4 9-4z M3 6v6c0 2.2 4 4 9 4s9-1.8 9-4V6 M3 12v6c0 2.2 4 4 9 4s9-1.8 9-4v-6",chevron:"M6 9l6 6 6-6",download:"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3",upload:"M17 8l-5-5-5 5 M12 3v12 M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4",refresh:"M23 4v6h-6 M1 20v-6h6 M3.5 9a9 9 0 0 1 14.9-3.36L23 10 M1 14l4.6 4.36A9 9 0 0 0 20.5 15",
@@ -67,6 +67,22 @@ let cardsViewMode=readCardsViewMode();
 let listSort={...DEFAULT_LIST_SORT};
 let currentCompleteness=new Map();
 let dashboardRefreshQueued=false;
+const VALID_SECTIONS=new Set(["cards","templates","stats","settings"]);
+
+function normalizeLegacyEmployeeLocation(){
+  const url=new URL(globalThis.location?.href||"http://localhost/index.html");
+  const legacyHash=url.hash.toLowerCase()==="#employees";
+  const legacyQuery=url.searchParams.get("section")?.toLowerCase()==="employees";
+  const legacyPath=/(?:^|\/)employees(?:\.html)?\/?$/i.test(url.pathname);
+  if(!legacyHash&&!legacyQuery&&!legacyPath)return false;
+  if(legacyHash)url.hash="";
+  if(legacyQuery)url.searchParams.delete("section");
+  if(legacyPath)url.pathname=url.pathname.replace(/employees(?:\.html)?\/?$/i,"index.html");
+  globalThis.history?.replaceState?.(null,"",`${url.pathname}${url.search}${url.hash}`);
+  return true;
+}
+
+normalizeLegacyEmployeeLocation();
 
 function applyAppSettings(settings=readSettings()){
   applySettingsToDocument(settings);
@@ -313,7 +329,7 @@ async function handleAction(action,id,target){
 setupQrPremium({showToast,renderIconElements:renderIcons,onCardUpdated:()=>{refreshDepartments();renderDashboard();refreshQuickView()}});
 setupQuickView({showToast,renderIconElements:renderIcons,openCardEditor:openEditor,openPremiumQr:openPremiumQrForCard});
 setupEditor({onChange:()=>{refreshDepartments();renderDashboard();refreshQuickView()},showToast});
-setupTemplatesUI({showToast,onCardsUpdate:()=>{refreshDepartments();renderDashboard()},renderIconElements:renderIcons});
+setupTemplatesUI({showToast,onCardsUpdate:()=>{refreshDepartments();renderDashboard();refreshQuickView()},renderIconElements:renderIcons});
 setupAnalyticsUI({showToast,renderIconElements:renderIcons,openCardEditor:openEditor});
 setupSettingsUI({showToast,renderIconElements:renderIcons,onSettingsApplied:()=>{applyAppSettings();refreshDepartments();renderDashboard();renderTemplatesSection();renderAnalyticsSection()},onDataChanged:()=>{refreshDepartments();renderDashboard();renderTemplatesSection();renderAnalyticsSection()}});
 applyAppSettings();renderIcons();refreshDepartments();renderDashboard();
@@ -341,6 +357,7 @@ globalThis.addEventListener?.("storage",event=>{
 });
 document.querySelector("#menu-toggle").addEventListener("click",event=>{const open=sidebar.classList.toggle("open");event.currentTarget.setAttribute("aria-expanded",open)});
 function activateSection(section,item=document.querySelector(`.nav-item[data-section="${section}"]`)){
+  if(!VALID_SECTIONS.has(section)){section="cards";item=document.querySelector('.nav-item[data-section="cards"]')}
   document.querySelector("#cards-view").hidden=section!=="cards";
   document.querySelector("#templates-view").hidden=section!=="templates";
   document.querySelector("#stats-view").hidden=section!=="stats";
@@ -354,11 +371,11 @@ function activateSection(section,item=document.querySelector(`.nav-item[data-sec
   sidebar.classList.remove("open");
 }
 document.querySelectorAll(".nav-item").forEach(item=>item.addEventListener("click",()=>{
-  let section=item.dataset.section;
-  if(section==="employees"){section="cards";item=document.querySelector('.nav-item[data-section="cards"]');showToast("El directorio de empleados está integrado en Tarjetas.")}
+  const section=item.dataset.section;
   const navigate=()=>activateSection(section,item);
   if(currentSection==="settings"&&section!=="settings"&&isSettingsDirty())requestSettingsLeave(navigate);else navigate();
 }));
+globalThis.addEventListener?.("hashchange",()=>{if(normalizeLegacyEmployeeLocation())activateSection("cards")});
 document.querySelector("#data-menu-button").addEventListener("click",event=>{const menu=document.querySelector("#data-menu");menu.hidden=!menu.hidden;event.currentTarget.setAttribute("aria-expanded",!menu.hidden)});
 document.querySelector("#import-file").addEventListener("change",async event=>{
   const file=event.target.files[0];if(!file)return;

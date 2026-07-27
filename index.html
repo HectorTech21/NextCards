@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="assets/css/editor.css?v=1.8.1">
   <link rel="stylesheet" href="assets/css/photo-frame.css?v=1.4.0">
   <link rel="stylesheet" href="assets/css/templates.css?v=1.3.0">
+  <link rel="stylesheet" href="assets/css/template-comparator.css?v=1.0.0">
   <link rel="stylesheet" href="assets/css/analytics.css?v=1.2.0">
   <link rel="stylesheet" href="assets/css/settings.css?v=1.8.1">
   <link rel="stylesheet" href="assets/css/qr-premium.css?v=1.8.1">
@@ -30,7 +31,6 @@
       </div>
       <nav class="main-nav">
         <button class="nav-item active" type="button" data-section="cards" aria-current="page"><span data-icon="cards"></span>Tarjetas</button>
-        <button class="nav-item" type="button" data-section="employees"><span data-icon="people"></span>Empleados</button>
         <button class="nav-item" type="button" data-section="templates"><span data-icon="layout"></span>Plantillas</button>
         <button class="nav-item" type="button" data-section="stats"><span data-icon="chart"></span>Estadísticas</button>
         <button class="nav-item" type="button" data-section="settings"><span data-icon="settings"></span>Configuración</button>
@@ -53,7 +53,7 @@
         </button>
         <div class="search-wrap">
           <span data-icon="search"></span>
-          <label class="sr-only" for="global-search">Buscar empleados</label>
+          <label class="sr-only" for="global-search">Buscar tarjetas</label>
           <input id="global-search" type="search" placeholder="Buscar por nombre, puesto o email">
           <kbd>⌘ K</kbd>
         </div>
@@ -176,7 +176,7 @@
           </section>
 
           <section class="templates-panel">
-            <div class="templates-panel-heading"><div><h2>Diseños disponibles</h2><p id="template-results-label">10 plantillas</p></div></div>
+            <div class="templates-panel-heading"><div><h2>Diseños disponibles</h2><p id="template-results-label">10 plantillas</p></div><button class="button button-secondary" type="button" data-template-action="compare"><span data-icon="layout"></span>Comparar plantillas</button></div>
             <div class="no-custom-templates" id="no-custom-templates" hidden>
               <span class="no-custom-icon"><span data-icon="edit"></span></span>
               <div><strong>Sin plantillas personalizadas</strong><p>Crea una variante controlada a partir de cualquiera de los diseños del sistema.</p></div>
@@ -695,6 +695,51 @@
     </section>
   </div>
 
+  <div class="template-modal template-compare-modal" id="template-compare-modal" hidden>
+    <section class="template-modal-dialog template-compare-dialog" role="dialog" aria-modal="true" aria-labelledby="template-compare-title" aria-describedby="template-compare-description" tabindex="-1">
+      <header class="template-modal-header template-compare-header">
+        <div><span class="eyebrow">Decisión visual</span><h2 id="template-compare-title">Comparar plantillas</h2><p id="template-compare-description">Aplica los mismos datos reales a varios diseños antes de elegir.</p></div>
+        <button class="icon-button" type="button" data-template-action="close-compare" aria-label="Cerrar comparador de plantillas"><span data-icon="close"></span></button>
+      </header>
+      <div class="template-compare-body">
+        <aside class="template-compare-controls" aria-label="Configurar comparación">
+          <section class="compare-control-section">
+            <div class="compare-section-heading"><span>01</span><div><h3>Persona</h3><p>La tarjeta real que se usará en todas las vistas.</p></div></div>
+            <label class="compare-person-search" for="template-compare-person-search"><span class="sr-only">Buscar persona por nombre, cargo o departamento</span><span data-icon="search"></span><input id="template-compare-person-search" type="search" placeholder="Buscar persona" autocomplete="off" aria-controls="template-compare-person-list"></label>
+            <div class="compare-person-list" id="template-compare-person-list" role="radiogroup" aria-label="Tarjetas disponibles"></div>
+            <p class="compare-empty-message" id="template-compare-person-empty" hidden>No hay tarjetas que coincidan con la búsqueda.</p>
+          </section>
+          <section class="compare-control-section">
+            <div class="compare-section-heading"><span>02</span><div><h3>Plantillas</h3><p>Selecciona entre 2 y 4 diseños activos.</p></div><strong id="template-compare-count">0/4</strong></div>
+            <div class="compare-selection-actions"><button type="button" data-template-action="compare-recommended">Seleccionar recomendadas</button><button type="button" data-template-action="compare-clear">Limpiar selección</button></div>
+            <div class="compare-template-options" id="template-compare-template-options" role="group" aria-label="Plantillas activas"></div>
+            <p class="compare-limit-message" id="template-compare-limit" role="status" aria-live="polite"></p>
+          </section>
+        </aside>
+        <section class="template-compare-workspace" aria-labelledby="template-compare-workspace-title">
+          <header class="compare-workspace-header">
+            <div><h3 id="template-compare-workspace-title">Comparativa real</h3><p id="template-compare-status" role="status" aria-live="polite">Selecciona al menos dos plantillas.</p></div>
+            <div class="device-switch compare-device-switch" role="group" aria-label="Modo de previsualización">
+              <button type="button" class="active" data-compare-device="mobile" aria-pressed="true">Móvil</button>
+              <button type="button" data-compare-device="tablet" aria-pressed="false">Tablet</button>
+              <button type="button" data-compare-device="desktop" aria-pressed="false">Escritorio</button>
+            </div>
+          </header>
+          <nav class="compare-carousel-nav" id="template-compare-carousel-nav" aria-label="Navegar entre plantillas" hidden>
+            <button class="button button-secondary" type="button" data-template-action="compare-previous" aria-controls="template-compare-grid">Anterior</button>
+            <span id="template-compare-position" role="status" aria-live="polite">1 de 1</span>
+            <button class="button button-secondary" type="button" data-template-action="compare-next" aria-controls="template-compare-grid">Siguiente</button>
+          </nav>
+          <div class="template-compare-grid device-mobile" id="template-compare-grid" aria-label="Previsualizaciones de plantillas"></div>
+        </section>
+      </div>
+      <footer class="template-modal-footer template-compare-footer">
+        <p id="template-compare-apply-note">Cerrar no modifica ninguna tarjeta.</p>
+        <div><button class="button button-secondary" type="button" data-template-action="close-compare">Cancelar</button><button class="button button-primary" id="template-compare-apply" type="button" data-template-action="compare-apply" disabled>Elige una plantilla</button></div>
+      </footer>
+    </section>
+  </div>
+
   <div class="template-modal" id="template-editor-modal" hidden>
     <section class="template-modal-dialog template-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="template-editor-title" tabindex="-1">
       <header class="template-modal-header">
@@ -771,6 +816,6 @@
 
   <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
   <script src="assets/js/vendor/qrcode-generator.js?v=1.3.1"></script>
-  <script type="module" src="assets/js/app.js?v=1.9.0"></script>
+  <script type="module" src="assets/js/app.js?v=1.10.0"></script>
 </body>
 </html>

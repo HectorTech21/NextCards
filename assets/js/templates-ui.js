@@ -3,6 +3,16 @@ import {renderCardPreview} from "./preview.js?v=1.7.0";
 import {CORPORATE_PRESETS,templateService,validateTemplateDraft} from "./templates-store.js?v=1.7.0";
 import {formatPersonName,formatSettingsDate} from "./settings-store.js";
 import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
+import {
+  COMPARISON_DEVICES,
+  MAX_COMPARISON_TEMPLATES,
+  MIN_COMPARISON_TEMPLATES,
+  describeTemplate,
+  effectiveCurrentTemplateId,
+  normalizeComparisonSelection,
+  recommendedTemplateIds,
+  toggleComparisonTemplate,
+} from "./template-comparator.js?v=1.0.0";
 
 export const TEMPLATE_SAMPLE_CARD = Object.freeze({
   id: "template-preview-sample",
@@ -44,9 +54,15 @@ let activeModal=null;
 let previousFocus=null;
 let applySourceTemplateId="";
 let selectedCardIds=new Set();
+let compareCardId="";
+let compareTemplateIds=[];
+let compareCandidateId="";
+let compareDevice="mobile";
+let compareSlide=0;
 
 const templatesView=()=>document.querySelector("#templates-view");
 const previewModal=()=>document.querySelector("#template-preview-modal");
+const compareModal=()=>document.querySelector("#template-compare-modal");
 const editorModal=()=>document.querySelector("#template-editor-modal");
 const applyModal=()=>document.querySelector("#template-apply-modal");
 const templateForm=()=>document.querySelector("#template-form");
@@ -138,6 +154,239 @@ function openTemplatePreview(id){
   currentPreviewTemplateId=id;document.querySelector("#template-preview-title").textContent=template.name;populatePreviewCards();
   document.querySelectorAll("[data-preview-device]").forEach(button=>button.classList.toggle("active",button.dataset.previewDevice==="mobile"));
   document.querySelector("#template-preview-stage").className="template-preview-stage device-mobile";refreshFullPreview();openModal(previewModal());
+}
+
+function activeComparisonTemplates(){
+  return templateService.getTemplates({includeArchived:false});
+}
+
+function comparisonCard(){
+  const cards=cardService.all();
+  let card=cards.find(item=>item.id===compareCardId);
+  if(card)return card;
+  if(compareCardId)compareCandidateId="";
+  card=cards.find(item=>item.status==="active")||cards[0]||null;
+  compareCardId=card?.id||"";
+  return card;
+}
+
+function comparisonPersonAvatar(card){
+  if(!card.photo)return node("span","compare-person-initials",initials(card)||"LN");
+  const avatar=node("span","compare-person-photo");
+  const image=createPhotoFrameImage(card.photo,{
+    alt:"",
+    frame:card.photoFrame,
+    legacyPosition:card.photoPosition,
+    loading:"lazy",
+    onError:()=>avatar.replaceWith(node("span","compare-person-initials",initials(card)||"LN")),
+  });
+  avatar.append(image);
+  return avatar;
+}
+
+function renderComparisonPeople(){
+  const list=document.querySelector("#template-compare-person-list");
+  const empty=document.querySelector("#template-compare-person-empty");
+  const needle=document.querySelector("#template-compare-person-search").value.trim().toLowerCase();
+  const cards=cardService.all().filter(card=>!needle||[
+    formatPersonName(card),card.jobTitle,card.department,card.email,
+  ].filter(Boolean).join(" ").toLowerCase().includes(needle));
+  list.replaceChildren();
+  cards.forEach(card=>{
+    const label=node("label",`compare-person-option${card.id===compareCardId?" selected":""}`);
+    const radio=node("input");radio.type="radio";radio.name="templateCompareCard";radio.value=card.id;radio.dataset.compareCardId=card.id;radio.checked=card.id===compareCardId;
+    const copy=node("span");
+    const details=[card.jobTitle,card.department].filter(Boolean).join(" · ")||"Sin cargo indicado";
+    copy.append(node("strong","",formatPersonName(card)||card.cardName||"Tarjeta sin nombre"),node("small","",details));
+    label.append(radio,comparisonPersonAvatar(card),copy);list.append(label);
+  });
+  empty.hidden=Boolean(cards.length);
+}
+
+function comparisonBadges(template,currentId){
+  const holder=node("span","compare-option-badges");
+  holder.append(node("span","",template.type==="system"?"Sistema":"Personalizada"));
+  if(template.id===currentId)holder.append(node("span","current","Actual"));
+  if(template.isDefault)holder.append(node("span","default","Predeterminada"));
+  return holder;
+}
+
+function renderComparisonTemplateOptions(){
+  const templates=activeComparisonTemplates();
+  compareTemplateIds=normalizeComparisonSelection(compareTemplateIds,templates);
+  if(compareCandidateId&&!compareTemplateIds.includes(compareCandidateId))compareCandidateId="";
+  const card=comparisonCard(),defaultTemplate=templateService.getDefaultTemplate();
+  const currentId=effectiveCurrentTemplateId(card,templates,defaultTemplate);
+  const holder=document.querySelector("#template-compare-template-options");holder.replaceChildren();
+  templates.forEach(template=>{
+    const selected=compareTemplateIds.includes(template.id);
+    const label=node("label",`compare-template-option${selected?" selected":""}`);
+    const checkbox=node("input");checkbox.type="checkbox";checkbox.value=template.id;checkbox.dataset.compareTemplateId=template.id;checkbox.checked=selected;
+    const swatch=node("span","compare-template-swatch");
+    swatch.style.setProperty("--swatch-bg",template.theme.backgroundColor);
+    swatch.style.setProperty("--swatch-text",template.theme.textColor);
+    swatch.style.setProperty("--swatch-accent",template.theme.accentColor);
+    swatch.style.setProperty("--swatch-photo-radius",template.theme.photoShape==="rounded"?"6px":"50%");
+    const copy=node("span","compare-template-copy");
+    copy.append(node("strong","",template.name),node("small","",template.description||"Diseño profesional de NextCards"),comparisonBadges(template,currentId));
+    label.append(checkbox,swatch,copy);holder.append(label);
+  });
+  if(!templates.length)holder.append(node("p","compare-empty-message","No hay plantillas activas disponibles."));
+  document.querySelector("#template-compare-count").textContent=`${compareTemplateIds.length}/${MAX_COMPARISON_TEMPLATES}`;
+  if(templates.length<MIN_COMPARISON_TEMPLATES)document.querySelector("#template-compare-limit").textContent="Se necesitan al menos dos plantillas activas para comparar.";
+}
+
+function comparePreviewBadges(template,currentId){
+  const holder=node("div","compare-preview-badges");
+  holder.append(node("span","",template.type==="system"?"Sistema":"Personalizada"));
+  if(template.id===currentId)holder.append(node("span","current","Actual"));
+  if(template.isDefault)holder.append(node("span","default","Predeterminada"));
+  if(template.id===compareCandidateId)holder.append(node("span","choice","Seleccionada"));
+  return holder;
+}
+
+function compareDetail(label,value){
+  const item=node("span");item.append(node("small","",label),node("strong","",value));return item;
+}
+
+function renderComparisonPreview(template,card,currentId,index){
+  const selected=template.id===compareCandidateId;
+  const article=node("article",`compare-preview${selected?" is-choice":""}${index===compareSlide?" is-carousel-active":""}`);
+  article.dataset.comparePreviewId=template.id;
+  article.setAttribute("aria-label",`${template.name}${selected?", seleccionada para aplicar":""}`);
+  const heading=node("header","compare-preview-header"),title=node("div");
+  title.append(node("h4","",template.name),comparePreviewBadges(template,currentId));
+  const choose=createAction("Elegir esta","compare-choose",template.id,selected?"button button-primary":"button button-secondary");
+  choose.setAttribute("aria-pressed",String(selected));choose.setAttribute("aria-label",`Elegir ${template.name} para ${formatPersonName(card)}`);
+  heading.append(title,choose);
+  const stage=node("div","compare-preview-stage"),frame=node("div","compare-preview-frame"),preview=node("div","digital-card");
+  frame.append(preview);stage.append(frame);renderCardPreview(preview,card,template,null,{interactive:false});
+  const summary=describeTemplate(template),details=node("div","compare-preview-details");
+  details.append(
+    compareDetail("Fondo",summary.tone),
+    compareDetail("Estilo",summary.style),
+    compareDetail("Contraste",summary.contrast),
+    compareDetail("Foto",summary.photo),
+    compareDetail("Acciones",summary.actions),
+    compareDetail("Uso","Identidad profesional"),
+  );
+  const recommendation=node("p","compare-preview-summary");
+  recommendation.append(node("strong","",summary.sentence),node("span","",summary.usage));
+  article.append(heading,stage,details,recommendation);
+  return article;
+}
+
+function updateComparisonCarousel(){
+  const items=[...document.querySelectorAll("#template-compare-grid .compare-preview")];
+  compareSlide=Math.max(0,Math.min(compareSlide,Math.max(0,items.length-1)));
+  items.forEach((item,index)=>item.classList.toggle("is-carousel-active",index===compareSlide));
+  const nav=document.querySelector("#template-compare-carousel-nav");
+  nav.hidden=items.length<=1;
+  const previous=nav.querySelector('[data-template-action="compare-previous"]');
+  const next=nav.querySelector('[data-template-action="compare-next"]');
+  previous.disabled=compareSlide===0;next.disabled=compareSlide>=items.length-1;
+  const template=activeComparisonTemplates().find(item=>item.id===items[compareSlide]?.dataset.comparePreviewId);
+  document.querySelector("#template-compare-position").textContent=items.length?`${compareSlide+1} de ${items.length} · ${template?.name||"Plantilla"}`:"Sin plantillas";
+}
+
+function updateComparisonApplyState(){
+  const card=comparisonCard(),templates=activeComparisonTemplates();
+  const candidate=templates.find(template=>template.id===compareCandidateId&&compareTemplateIds.includes(template.id));
+  const ready=Boolean(card&&candidate&&compareTemplateIds.length>=MIN_COMPARISON_TEMPLATES);
+  const button=document.querySelector("#template-compare-apply");
+  button.disabled=!ready;
+  button.textContent=ready?`Aplicar ${candidate.name} a ${formatPersonName(card)}`:"Elige una plantilla";
+  document.querySelector("#template-compare-apply-note").textContent=ready?"La elección está preparada, pero todavía no se ha aplicado.":"Cerrar no modifica ninguna tarjeta.";
+}
+
+function renderComparisonPreviews(){
+  const templates=activeComparisonTemplates();
+  compareTemplateIds=normalizeComparisonSelection(compareTemplateIds,templates);
+  if(compareCandidateId&&!compareTemplateIds.includes(compareCandidateId))compareCandidateId="";
+  const card=comparisonCard(),defaultTemplate=templateService.getDefaultTemplate();
+  const currentId=effectiveCurrentTemplateId(card,templates,defaultTemplate);
+  const selected=compareTemplateIds.map(id=>templates.find(template=>template.id===id)).filter(Boolean);
+  const grid=document.querySelector("#template-compare-grid");
+  grid.className=`template-compare-grid device-${compareDevice} count-${selected.length}`;
+  grid.replaceChildren();
+  if(!card){
+    const empty=node("div","compare-empty-state");empty.append(node("strong","","No hay tarjetas disponibles"),node("span","","Crea una tarjeta para comparar plantillas con datos reales."));grid.append(empty);
+  }else if(!selected.length){
+    const empty=node("div","compare-empty-state");empty.append(node("strong","","Selecciona tus diseños"),node("span","","Elige entre dos y cuatro plantillas activas."));grid.append(empty);
+  }else selected.forEach((template,index)=>grid.append(renderComparisonPreview(template,card,currentId,index)));
+  const status=document.querySelector("#template-compare-status");
+  if(!card)status.textContent="No hay una tarjeta real disponible.";
+  else if(templates.length<MIN_COMPARISON_TEMPLATES)status.textContent="No hay suficientes plantillas activas para comparar.";
+  else if(selected.length<MIN_COMPARISON_TEMPLATES)status.textContent=`Selecciona ${MIN_COMPARISON_TEMPLATES-selected.length} plantilla${selected.length?"":"s"} más para comparar.`;
+  else status.textContent=`Comparando ${selected.length} plantillas con ${formatPersonName(card)}.`;
+  renderIcons(grid);updateComparisonCarousel();updateComparisonApplyState();
+}
+
+function setComparisonDevice(device){
+  if(!COMPARISON_DEVICES.includes(device))return;
+  compareDevice=device;
+  document.querySelectorAll("[data-compare-device]").forEach(button=>{
+    const active=button.dataset.compareDevice===device;
+    button.classList.toggle("active",active);button.setAttribute("aria-pressed",String(active));
+  });
+  const grid=document.querySelector("#template-compare-grid");
+  COMPARISON_DEVICES.forEach(value=>grid.classList.remove(`device-${value}`));grid.classList.add(`device-${device}`);
+}
+
+function renderComparator(){
+  comparisonCard();
+  renderComparisonPeople();
+  renderComparisonTemplateOptions();
+  renderComparisonPreviews();
+  setComparisonDevice(compareDevice);
+}
+
+function openTemplateComparator(){
+  const templates=activeComparisonTemplates(),card=comparisonCard();
+  compareTemplateIds=recommendedTemplateIds(card,templates,templateService.getDefaultTemplate());
+  compareCandidateId="";compareDevice="mobile";compareSlide=0;
+  document.querySelector("#template-compare-person-search").value="";
+  document.querySelector("#template-compare-limit").textContent="";
+  renderComparator();
+  document.querySelector(".template-compare-body").scrollTop=0;
+  document.querySelector(".template-compare-controls").scrollTop=0;
+  document.querySelector("#template-compare-grid").scrollTop=0;
+  openModal(compareModal());
+}
+
+function chooseComparisonTemplate(id){
+  if(compareTemplateIds.length<MIN_COMPARISON_TEMPLATES||!compareTemplateIds.includes(id)){
+    toast("Selecciona al menos dos plantillas para poder elegir.","error");return;
+  }
+  compareCandidateId=id;renderComparisonPreviews();
+}
+
+function selectRecommendedComparisonTemplates(){
+  const templates=activeComparisonTemplates(),card=comparisonCard();
+  compareTemplateIds=recommendedTemplateIds(card,templates,templateService.getDefaultTemplate());
+  compareCandidateId="";compareSlide=0;document.querySelector("#template-compare-limit").textContent="";
+  renderComparisonTemplateOptions();renderComparisonPreviews();
+}
+
+function clearComparisonTemplates(){
+  compareTemplateIds=[];compareCandidateId="";compareSlide=0;document.querySelector("#template-compare-limit").textContent="";
+  renderComparisonTemplateOptions();renderComparisonPreviews();
+}
+
+function moveComparisonSlide(direction){
+  compareSlide+=direction;updateComparisonCarousel();
+}
+
+function applyComparisonTemplate(){
+  const card=cardService.all().find(item=>item.id===compareCardId);
+  const template=activeComparisonTemplates().find(item=>item.id===compareCandidateId);
+  if(!card){toast("La tarjeta seleccionada ya no está disponible.","error");renderComparator();return}
+  if(!template||!compareTemplateIds.includes(template.id)||compareTemplateIds.length<MIN_COMPARISON_TEMPLATES){toast("Elige una plantilla activa antes de aplicar.","error");return}
+  try{
+    const result=templateService.applyTemplateToCards(template.id,[card.id],{useTemplateAccent:false});
+    if(result.updated!==1)throw new Error("No se ha podido actualizar la tarjeta seleccionada.");
+    compareCandidateId="";closeModal(compareModal());onCardsChanged();renderTemplatesSection();toast("Plantilla aplicada correctamente");
+  }catch(problem){toast(problem.message,"error")}
 }
 
 function setField(name,value){
@@ -294,6 +543,14 @@ function deleteTemplate(id){const template=templateService.getTemplateById(id);i
 
 function handleTemplateAction(action,id){
   if(action==="clear-filters"){document.querySelector("#template-search").value="";document.querySelector("#template-filter").value="all";renderTemplatesSection()}
+  if(action==="compare")openTemplateComparator();
+  if(action==="close-compare")closeModal(compareModal());
+  if(action==="compare-recommended")selectRecommendedComparisonTemplates();
+  if(action==="compare-clear")clearComparisonTemplates();
+  if(action==="compare-choose")chooseComparisonTemplate(id);
+  if(action==="compare-apply")applyComparisonTemplate();
+  if(action==="compare-previous")moveComparisonSlide(-1);
+  if(action==="compare-next")moveComparisonSlide(1);
   if(action==="create-variant")openTemplateEditor();
   if(action==="preview")openTemplatePreview(id);
   if(action==="variant")openTemplateEditor({sourceId:id});
@@ -329,6 +586,21 @@ export function setupTemplatesUI({showToast,onCardsUpdate,renderIconElements}={}
   document.addEventListener("click",event=>{const trigger=event.target.closest("[data-template-action]");if(trigger)handleTemplateAction(trigger.dataset.templateAction,trigger.dataset.templateId);if(event.target.classList.contains("template-modal")){if(event.target===editorModal())closeTemplateEditor();else closeModal(event.target)}});
   document.querySelectorAll("[data-preview-device]").forEach(button=>button.addEventListener("click",()=>{document.querySelectorAll("[data-preview-device]").forEach(item=>item.classList.toggle("active",item===button));document.querySelector("#template-preview-stage").className=`template-preview-stage device-${button.dataset.previewDevice}`}));
   document.querySelector("#template-preview-card").addEventListener("change",refreshFullPreview);
+  document.querySelector("#template-compare-person-search").addEventListener("input",renderComparisonPeople);
+  document.querySelector("#template-compare-person-list").addEventListener("change",event=>{
+    const id=event.target.dataset.compareCardId;if(!id||!cardService.all().some(card=>card.id===id))return;
+    compareCardId=id;compareCandidateId="";compareSlide=0;document.querySelector("#template-compare-person-search").value="";document.querySelector("#template-compare-limit").textContent="";
+    renderComparisonPeople();renderComparisonTemplateOptions();renderComparisonPreviews();
+  });
+  document.querySelector("#template-compare-template-options").addEventListener("change",event=>{
+    const id=event.target.dataset.compareTemplateId;if(!id)return;
+    const templates=activeComparisonTemplates(),result=toggleComparisonTemplate(compareTemplateIds,id,templates);
+    compareTemplateIds=result.ids;if(compareCandidateId&&!compareTemplateIds.includes(compareCandidateId))compareCandidateId="";compareSlide=Math.min(compareSlide,Math.max(0,compareTemplateIds.length-1));
+    renderComparisonTemplateOptions();renderComparisonPreviews();
+    if(result.limitReached){const message=`Puedes comparar un máximo de ${MAX_COMPARISON_TEMPLATES} plantillas.`;document.querySelector("#template-compare-limit").textContent=message;toast(message,"error")}
+    else document.querySelector("#template-compare-limit").textContent="";
+  });
+  document.querySelectorAll("[data-compare-device]").forEach(button=>button.addEventListener("click",()=>setComparisonDevice(button.dataset.compareDevice)));
   document.querySelector("#corporate-presets").addEventListener("click",event=>{const button=event.target.closest("[data-template-preset]");if(!button)return;const preset=CORPORATE_PRESETS[Number(button.dataset.templatePreset)];setThemeFields({...editorFormData().theme,...preset,mutedTextColor:preset.textColor==="#FFFFFF"?"#E1E1E8":"#686878"});editorDirty=true;refreshTemplateEditor()});
   templateForm().addEventListener("input",event=>{const pickerName=event.target.dataset.colorPicker;if(pickerName){setField(pickerName,event.target.value.toUpperCase());if(pickerName==="textColor")draftMutedTextColor=event.target.value.toUpperCase()}if(event.target.name&&event.target.name.endsWith("Color")&&/^#[0-9A-F]{6}$/i.test(event.target.value)){event.target.value=event.target.value.toUpperCase();const picker=templateForm().querySelector(`[data-color-picker="${event.target.name}"]`);if(picker)picker.value=event.target.value;if(event.target.name==="textColor")draftMutedTextColor=event.target.value}editorDirty=true;refreshTemplateEditor()});
   templateForm().addEventListener("change",event=>{if(event.target.name==="baseTemplateId"){const base=templateService.getTemplateById(event.target.value);if(base)setThemeFields(base.theme)}editorDirty=true;refreshTemplateEditor()});
