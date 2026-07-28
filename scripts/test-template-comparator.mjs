@@ -109,7 +109,7 @@ assert.match(cssSource,/@media\(min-width:1600px\)/);
 assert.match(cssSource,/\.compare-preview:not\(\.is-carousel-active\)\{display:none\}/);
 
 assert.doesNotMatch(indexSource,/data-section="employees"/,"Empleados no debe aparecer en la navegación.");
-assert.match(indexSource,/<span>Empleados<\/span>/,"La métrica de personas debe conservarse.");
+assert.match(indexSource,/<span>Tarjetas totales<\/span>/,"La métrica debe representar tarjetas, no deduplicar personas por email.");
 assert.doesNotMatch(appSource,/section==="employees"/,"No debe quedar un listener exclusivo de la sección eliminada.");
 assert.match(appSource,/normalizeLegacyEmployeeLocation/);
 assert.match(appSource,/#employees/);

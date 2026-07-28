@@ -1,9 +1,9 @@
-import {cardService,createCardId,emptyCard,normalizeSlug,sanitizePhone,isValidHttpUrl} from "./cards.js?v=1.9.0";
+import {cardService,createCardId,emptyCard,normalizeSlug,sanitizePhone,isValidHttpUrl} from "./cards.js?v=1.10.1";
 import {storage} from "./storage.js?v=1.9.0";
-import {renderCardPreview} from "./preview.js?v=1.7.0";
+import {renderCardPreview} from "./preview.js?v=1.10.1";
 import {templateService} from "./templates-store.js?v=1.7.0";
-import {getSourcedPublicCardUrl} from "./card-export.js";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.9.0";
+import {canDisplayPublicCard,getSourcedPublicCardUrl} from "./card-export.js?v=1.10.1";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.10.1";
 import {DEFAULT_PHOTO_FRAME,createPhotoFrameImage,normalizePhotoFrame} from "./photo-frame.js?v=1.6.0";
 import {closePhotoFrameEditor,isPhotoFrameEditorOpen,openPhotoFrameEditor,setupPhotoFrameEditor} from "./photo-frame-editor.js?v=1.6.0";
 import {
@@ -19,7 +19,7 @@ import {
   savePhoto,
   verifyPhotoBlob,
 } from "./photo-storage.js?v=1.6.0";
-import {openQrPremium} from "./qr-premium.js?v=1.8.4";
+import {openQrPremium} from "./qr-premium.js?v=1.10.1";
 import {createCompletenessContext,evaluateCardCompleteness} from "./card-completeness.js?v=1.9.0";
 import {getPhotoVerificationStatuses,renderCompletenessDetails,reportPhotoVerification} from "./card-completeness-ui.js?v=1.9.0";
 
@@ -209,8 +209,22 @@ function renderEditorCompleteness(){
   window.NextCardsIcons?.render(document.querySelector("#editor-completeness"));
 }
 
+function updateEditorPublicActions(card){
+  const saved=Boolean(card.id);
+  const previewButton=document.querySelector('[data-action="open-current-public"]');
+  const qrButton=document.querySelector('[data-action="open-current-qr"]');
+  const previewAvailable=saved&&canDisplayPublicCard(card,"editor_preview");
+  const qrAvailable=saved&&canDisplayPublicCard(card,"qr");
+  previewButton.disabled=!previewAvailable;
+  previewButton.title=previewAvailable?"":saved?"Reactiva la tarjeta para abrir su vista previa.":"Guarda primero la tarjeta.";
+  qrButton.disabled=!qrAvailable;
+  qrButton.title=qrAvailable?"":saved?"Publica la tarjeta para generar su QR premium.":"Guarda primero la tarjeta.";
+}
+
 function refreshPreview({markDirty=true,message,photoFrame=temporaryPhotoFrame||currentPhotoFrame}={}){
-  renderCardPreview(preview,formData({photoFrame}));
+  const draft=formData({photoFrame});
+  renderCardPreview(preview,draft);
+  updateEditorPublicActions(draft);
   renderEditorCompleteness();
   updateCharacterCounts();
   if(markDirty)setDirty(true,message);
@@ -403,7 +417,7 @@ export function setupEditor({onChange,showToast}={}){
 async function save(forcedStatus){
   if(photoProcessing){toast("Espera a que termine el procesamiento de la imagen.","error");return}
   if(saveInProgress)return;
-  const data=formData({forPersistence:true});if(forcedStatus==="draft")data.status="draft";
+  const data=formData({forPersistence:true});if(forcedStatus==="draft"){data.status="draft";form.elements.status.value="draft"}
   if(!validate(data)){toast("Revisa los campos marcados.","error");form.querySelector(".invalid")?.focus();return}
   const existingId=form.elements.id.value;const isExisting=Boolean(existingId);const cardsBefore=cardService.all();const beforeCard=isExisting?cardService.get(existingId):null;
   const hadPendingPhoto=Boolean(pendingPhoto);let storedPhoto=null;let cardWasSaved=false;setEditorBusy(true);indicator.textContent=hadPendingPhoto?"Guardando imagen…":"Guardando…";
@@ -446,6 +460,7 @@ function openPublic(){
   if(!id){toast("Guarda primero la tarjeta para abrir su enlace público.","error");return}
   if(editorDirty){toast("Guarda los cambios antes de abrir la tarjeta pública.","error");return}
   const card=cardService.get(id);if(!card){toast("No se ha encontrado la tarjeta guardada.","error");return}
+  if(!canDisplayPublicCard(card,"editor_preview")){toast("Reactiva la tarjeta antes de abrir su vista previa.","error");return}
   window.open(getSourcedPublicCardUrl(card,"editor_preview"),"_blank","noopener,noreferrer");
 }
 
@@ -454,6 +469,7 @@ function openPremiumQr(opener){
   if(!id){toast("Guarda primero la tarjeta para crear su QR premium.","error");return}
   if(editorDirty){toast("Guarda los cambios antes de crear el QR premium.","error");return}
   const card=cardService.get(id);if(!card){toast("No se ha encontrado la tarjeta guardada.","error");return}
+  if(!canDisplayPublicCard(card,"qr")){toast("Publica la tarjeta antes de crear su QR premium.","error");return}
   openQrPremium({
     card,
     url:getSourcedPublicCardUrl(card,"qr"),
@@ -463,10 +479,10 @@ function openPremiumQr(opener){
   });
 }
 
-export function openEditor(id="",{focusTemplate=false,focusField=""}={}){
+export function openEditor(id="",{focusTemplate=false,focusField="",returnFocusTo=null}={}){
   if(isPhotoFrameEditorOpen())closePhotoFrameEditor();
   const card=id?cardService.get(id):emptyCard();if(!card){toast("No se ha encontrado la tarjeta.","error");return}
-  previousEditorFocus=document.activeElement;populate(card);overlay.hidden=false;document.body.style.overflow="hidden";
+  previousEditorFocus=returnFocusTo?.isConnected?returnFocusTo:document.activeElement;populate(card);overlay.hidden=false;document.body.style.overflow="hidden";
   setTimeout(()=>{
     if(focusField){focusCompletenessTarget(focusField);return}
     if(!focusTemplate){form.elements.firstName.focus();return}

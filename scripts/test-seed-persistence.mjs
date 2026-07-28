@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 import qrcode from "qrcode-generator";
-import { buildVcard, getPublicCardUrl, getVcardFilename } from "../assets/js/card-export.js";
+import { buildVcard, canDisplayPublicCard, getPublicCardUrl, getVcardFilename } from "../assets/js/card-export.js";
 import { buildQrSvg } from "../assets/js/qr-code.js";
 
 const seed = JSON.parse(await fs.readFile(new URL("../assets/data/employees.json", import.meta.url), "utf8"));
@@ -110,6 +110,14 @@ assert.equal(cardService.query({ search: "CFO" }).length, 1, "La búsqueda por c
 assert.equal(cardService.query({ search: "MARIEMMA" }).length, 1, "La búsqueda debe localizar una nueva tarjeta por nombre.");
 assert.equal(cardService.query({ department: "STAFF" }).length, 31, "El filtro de departamento debe conservar todas las tarjetas STAFF.");
 assert.equal(cardService.query({ status: "active" }).length, 31, "El filtro de estado debe devolver las 31 tarjetas activas.");
+
+const statusTarget=francisco[0];
+assert.equal(cardService.toggleDisabled(statusTarget.id).status,"disabled","Desactivar debe retirar la tarjeta de publicación.");
+assert.equal(canDisplayPublicCard(cardService.get(statusTarget.id),"admin_preview"),false,"Una tarjeta desactivada no debe abrirse ni como preview.");
+assert.equal(cardService.toggleDisabled(statusTarget.id).status,"active","Reactivar debe devolver directamente la tarjeta a estado activo.");
+assert.equal(canDisplayPublicCard(cardService.get(statusTarget.id),"direct"),true);
+assert.equal(canDisplayPublicCard({...statusTarget,status:"draft"},"direct"),false,"Un borrador no debe ser público por enlace directo.");
+assert.equal(canDisplayPublicCard({...statusTarget,status:"draft"},"admin_preview"),true,"Un borrador debe admitir la revisión administrativa controlada.");
 
 const framedSource = cardService.update(francisco[0].id, {photoFrame: {x: 38, y: 64, scale: 1.35}});
 const duplicated = cardService.duplicate(framedSource.id);

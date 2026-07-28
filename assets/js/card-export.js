@@ -1,5 +1,19 @@
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.10.1";
+
+const ADMINISTRATIVE_PREVIEW_SOURCES = Object.freeze(["admin_preview", "editor_preview"]);
+
 function cleanVcard(value = "") {
   return String(value).replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+}
+
+export function isAdministrativePreviewSource(source = "") {
+  return ADMINISTRATIVE_PREVIEW_SOURCES.includes(String(source || "").trim().toLowerCase());
+}
+
+export function canDisplayPublicCard(card, source = "direct") {
+  if (!card || card.status === "disabled") return false;
+  if (card.status === "active") return true;
+  return card.status === "draft" && isAdministrativePreviewSource(source);
 }
 
 export function getPublicCardUrl(card, baseUrl = location.href) {
@@ -42,4 +56,3 @@ export function buildVcard(card, settingsOverride = null) {
   lines.push("END:VCARD");
   return lines.join("\r\n");
 }
-import {formatPersonName,settingsService} from "./settings-store.js";

@@ -1,4 +1,4 @@
-import {cardService} from "./cards.js?v=1.9.0";
+import {cardService} from "./cards.js?v=1.10.1";
 import {
   ANALYTICS_EVENT_TYPES,
   ANALYTICS_MAX_EVENTS,
@@ -19,9 +19,9 @@ import {
   resolveDateRange,
 } from "./analytics-aggregate.js";
 import {generateAnalyticsDemoData} from "./analytics-demo.js";
-import {getSourcedPublicCardUrl} from "./card-export.js";
+import {getSourcedPublicCardUrl} from "./card-export.js?v=1.10.1";
 import {templateService} from "./templates-store.js?v=1.7.0";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.9.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.10.1";
 import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
 import {buildCompletenessSummary,createCompletenessContext,evaluateCardsCompleteness} from "./card-completeness.js?v=1.9.0";
 import {getPhotoVerificationStatuses,renderCompletenessAnalytics} from "./card-completeness-ui.js?v=1.9.0";

@@ -7,7 +7,7 @@ import {
   SETTINGS_STORAGE_KEY,
   settingsService,
   validateSettings,
-} from "./settings-store.js?v=1.9.0";
+} from "./settings-store.js?v=1.10.1";
 import {isValidPhotoFrame,normalizeCardPhotoFrame} from "./photo-frame.js?v=1.6.0";
 import {PHOTO_DB_NAME,PHOTO_SCHEMA_VERSION,canRenderPhoto,clearAllPhotos,isIndexedDbPhoto,pruneUnusedPhotos} from "./photo-storage.js?v=1.6.0";
 import {normalizeCardQrStyle,sanitizeQrStyle} from "./qr-premium-core.js?v=1.8.1";

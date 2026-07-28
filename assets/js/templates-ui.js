@@ -1,7 +1,7 @@
-import {cardService} from "./cards.js?v=1.9.0";
-import {renderCardPreview} from "./preview.js?v=1.7.0";
+import {cardService} from "./cards.js?v=1.10.1";
+import {renderCardPreview} from "./preview.js?v=1.10.1";
 import {CORPORATE_PRESETS,templateService,validateTemplateDraft} from "./templates-store.js?v=1.7.0";
-import {formatPersonName,formatSettingsDate} from "./settings-store.js";
+import {formatPersonName,formatSettingsDate} from "./settings-store.js?v=1.10.1";
 import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
 import {
   COMPARISON_DEVICES,
@@ -116,7 +116,8 @@ export function renderTemplatesSection(){
     return matchesSearch&&matchesFilter;
   });
   document.querySelector("#template-total-count").textContent=templates.length;
-  document.querySelector("#template-default-name").textContent=templateService.getDefaultTemplate().name;
+  const defaultName=templateService.getDefaultTemplate().name,defaultNameNode=document.querySelector("#template-default-name");
+  defaultNameNode.textContent=defaultName;defaultNameNode.title=defaultName;
   document.querySelector("#template-custom-count").textContent=templates.filter(item=>item.type==="custom").length;
   document.querySelector("#template-custom-card-count").textContent=cardService.all().filter(card=>customIds.has(card.template)).length;
   document.querySelector("#no-custom-templates").hidden=Boolean(customIds.size)||search||filter==="archived";

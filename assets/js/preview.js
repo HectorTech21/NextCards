@@ -1,6 +1,6 @@
 import {templateService,readableTextColor} from "./templates-store.js?v=1.7.0";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.9.0";
-import {renderActionGrid} from "./card-actions.js?v=1.2.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.10.1";
+import {renderActionGrid} from "./card-actions.js?v=1.10.1";
 import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
 
 function el(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node}
@@ -36,7 +36,10 @@ function applyTheme(container,card,template){
   container.dataset.cardTone=readableTextColor(theme.backgroundColor)==="#FFFFFF"?"dark":"light";
 }
 
-export function renderCardPreview(container,card,templateOverride=null,settingsOverride=null,{interactive=false}={}){
+export function renderCardPreview(container,card,templateOverride=null,settingsOverride=null,options={}){
+  const interactive=Boolean(options.interactive);
+  const requestedHeading=String(options.headingLevel||"").toLowerCase();
+  const headingTag=["h1","h2","h3","p","div"].includes(requestedHeading)?requestedHeading:(interactive?"h1":"div");
   container.replaceChildren();
   const settings=settingsOverride||settingsService.getSettings();
   const template=templateOverride||templateService.resolveTemplate(card.template);
@@ -55,7 +58,7 @@ export function renderCardPreview(container,card,templateOverride=null,settingsO
       frame.append(photo);identity.append(frame);
     }else identity.append(initialsNode(card));
   }
-  identity.append(el("h1","",formatPersonName({firstName:card.firstName||"Nombre",lastName:card.lastName||"Apellidos"},settings)));
+  identity.append(el(headingTag,"dc-name",formatPersonName({firstName:card.firstName||"Nombre",lastName:card.lastName||"Apellidos"},settings)));
   if(card.visibleFields?.jobTitle!==false)identity.append(el("p","dc-role",card.jobTitle||"Puesto"));
   const metadata=[theme.showDepartment!==false&&card.visibleFields?.department!==false&&card.department,theme.showCity!==false&&card.visibleFields?.city!==false&&card.city].filter(Boolean);
   if(metadata.length)identity.append(el("p","dc-meta",metadata.join(" · ")));

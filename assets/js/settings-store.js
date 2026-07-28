@@ -3,7 +3,7 @@ import {normalizeCompletenessCriteria} from "./card-completeness.js?v=1.9.0";
 
 export const SETTINGS_STORAGE_KEY = "nextcards.settings.v1";
 export const SETTINGS_SCHEMA_VERSION = 3;
-export const NEXTCARDS_VERSION = "1.9.0";
+export const NEXTCARDS_VERSION = "1.10.1";
 
 export const LOGO_RESOURCES = Object.freeze({
   "symbol-negative": {label: "Símbolo", path: "assets/img/logos/lognext-symbol-negative.svg"},

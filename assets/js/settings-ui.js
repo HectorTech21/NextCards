@@ -1,4 +1,4 @@
-import {renderCardPreview} from "./preview.js?v=1.7.0";
+import {renderCardPreview} from "./preview.js?v=1.10.1";
 import {templateService} from "./templates-store.js?v=1.7.0";
 import {
   CARD_ACTIONS,
@@ -9,7 +9,7 @@ import {
   getDefaultSettings,
   settingsService,
   validateSettings,
-} from "./settings-store.js?v=1.9.0";
+} from "./settings-store.js?v=1.10.1";
 import {
   buildCardsCsv,
   buildTechnicalSummary,
@@ -20,7 +20,7 @@ import {
   restoreInitialNextCardsData,
   serializeBackup,
   validateBackup,
-} from "./settings-data.js?v=1.8.0";
+} from "./settings-data.js?v=1.10.1";
 import {getPhotoStorageUsage} from "./photo-storage.js?v=1.6.0";
 import {QR_PRESETS} from "./qr-premium-core.js?v=1.8.1";
 
@@ -157,22 +157,31 @@ function renderActionOrder() {
     item.dataset.actionId = id;
     item.append(node("strong", "", labels.get(id) || id));
     const actions = node("div", "settings-order-actions");
-    const up = node("button", "", "↑");
+    const up = node("button");
     up.type = "button";
     up.dataset.settingsOrder = "up";
     up.dataset.id = id;
     up.disabled = index === 0;
     up.setAttribute("aria-label", `Subir ${labels.get(id) || id}`);
-    const down = node("button", "", "↓");
+    const upIcon = node("span");
+    upIcon.dataset.icon = "arrow-left";
+    upIcon.setAttribute("aria-hidden", "true");
+    up.append(upIcon);
+    const down = node("button");
     down.type = "button";
     down.dataset.settingsOrder = "down";
     down.dataset.id = id;
     down.disabled = index === order.length - 1;
     down.setAttribute("aria-label", `Bajar ${labels.get(id) || id}`);
+    const downIcon = node("span");
+    downIcon.dataset.icon = "arrow-left";
+    downIcon.setAttribute("aria-hidden", "true");
+    down.append(downIcon);
     actions.append(up, down);
     item.append(actions);
     list.append(item);
   });
+  callbacks.renderIconElements?.(list);
 }
 
 function renderPreview() {

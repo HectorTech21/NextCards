@@ -1,6 +1,6 @@
 # NextCards
 
-Prototipo frontend para gestionar las tarjetas de visita digitales de los empleados de Lognext. La aplicación utiliza únicamente HTML, CSS y JavaScript moderno, y guarda los datos en `localStorage`.
+Aplicación frontend local para gestionar las tarjetas de visita digitales de los empleados de Lognext. Utiliza HTML, CSS y JavaScript moderno; guarda tarjetas, plantillas, configuración y analítica en `localStorage`, y las fotografías subidas manualmente en IndexedDB.
 
 ## Ejecutar localmente
 
@@ -17,10 +17,10 @@ También puedes usar cualquier servidor estático equivalente. No abras `index.h
 ## Funciones incluidas
 
 - Dashboard responsive con búsqueda y filtros.
-- Dieciséis tarjetas iniciales generadas desde la carga autorizada.
+- Treinta y una tarjetas iniciales correspondientes a treinta personas, incluida una variante válida por cargo.
 - Crear, editar, duplicar, desactivar y eliminar tarjetas.
 - Editor con validaciones, fotografía y vista previa en tiempo real.
-- Gestor completo con nueve diseños del sistema: Corporate Navy, Clean Light, Meaningful Tech, Executive Lines, Orange Pulse, Blue Grid, Talent Focus, Minimal Corporate y Premium Dark.
+- Gestor completo con diez diseños del sistema: Corporate Navy, Corporate Solid Navy, Clean Light, Meaningful Tech, Executive Lines, Orange Pulse, Blue Grid, Talent Focus, Minimal Corporate y Premium Dark.
 - Variantes personalizadas controladas, plantilla predeterminada, previews realistas y aplicación individual o masiva.
 - Cambio rápido de plantilla desde cada tarjeta y selector visual con actualización inmediata dentro del editor.
 - Estadísticas locales basadas en eventos, con filtros, comparativas, gráfico temporal SVG, ranking por tarjeta y detalle individual.
@@ -43,6 +43,11 @@ El QR se genera en el navegador mediante la librería ligera `qrcode-generator`,
 - `assets/css/global.css`: base, botones y plantillas compartidas.
 - `assets/css/dashboard.css`: dashboard y navegación.
 - `assets/css/editor.css`: formulario, modal y preview.
+- `assets/css/card-actions.css`: distribución responsive y animaciones de las acciones.
+- `assets/css/card-completeness.css`: indicadores y paneles de calidad.
+- `assets/css/quick-view.css`: drawer de vista rápida.
+- `assets/css/settings.css`: configuración, diagnóstico e importación.
+- `assets/css/qr-premium.css`: editor y exportación de QR premium.
 - `assets/css/templates.css`: catálogo, editor y aplicación masiva de plantillas.
 - `assets/css/analytics.css`: dashboard de estadísticas, gráfico, ranking, distribuciones y panel de detalle.
 - `assets/css/public-card.css`: experiencia pública.
@@ -51,6 +56,9 @@ El QR se genera en el navegador mediante la librería ligera `qrcode-generator`,
 - `assets/js/cards.js`: reglas de negocio y CRUD.
 - `assets/js/preview.js`: render seguro de las tarjetas.
 - `assets/js/editor.js`: formulario, validación y estado del editor.
+- `assets/js/card-actions.js`: componente seguro y reutilizable para acciones.
+- `assets/js/quick-view.js`: vista rápida administrativa por ID de tarjeta.
+- `assets/js/photo-storage.js`: persistencia y optimización de fotografías en IndexedDB.
 - `assets/js/templates-store.js`: catálogo persistente y reglas de negocio de plantillas.
 - `assets/js/templates-ui.js`: sección Plantillas, modales y aplicación a tarjetas.
 - `assets/js/analytics.js`: creación de sesiones anónimas e instrumentación tolerante a fallos.
@@ -67,6 +75,9 @@ El QR se genera en el navegador mediante la librería ligera `qrcode-generator`,
 - `scripts/test-seed-persistence.mjs`: pruebas de inicialización, persistencia y variantes por cargo.
 - `scripts/test-templates.mjs`: pruebas del catálogo, migración, variantes, predeterminada, fallback y aplicación individual por ID.
 - `scripts/test-analytics.mjs`: pruebas de tracking, sesiones, fuentes, filtros, agregación, demo y limpieza.
+- `scripts/test-settings.mjs`: pruebas de configuración, copias, importación e integridad.
+- `scripts/test-product-quality.mjs`: comprobaciones estáticas de seguridad, accesibilidad y metadatos.
+- `scripts/test-card-actions.mjs`, `scripts/test-quick-view.mjs`, `scripts/test-card-views.mjs`, `scripts/test-card-completeness.mjs` y `scripts/test-qr-premium.mjs`: regresión de los componentes principales.
 
 Los contenidos introducidos por el usuario se insertan con `textContent` y atributos DOM, no como HTML. Las URLs se validan antes de guardar y los enlaces externos usan `noopener noreferrer`.
 
@@ -122,9 +133,13 @@ localStorage.removeItem("nextcards_analytics_events"); localStorage.removeItem("
 El seed se carga una sola vez desde `assets/data/employees.json`. Las claves utilizadas son:
 
 - `nextcards.cards.v1`: colección editable de tarjetas.
-- `nextcards.seed.version`: versión aplicada del seed; actualmente `1`.
+- `nextcards.seed.version`: versión aplicada del seed; actualmente `3`.
+- `nextcards.seed.deletedIds`: tarjetas del seed eliminadas de forma intencionada.
 - `nextcards.templates.v1`: catálogo editable de plantillas.
-- `nextcards.templates.seed.version`: versión aplicada del catálogo; actualmente `2`.
+- `nextcards.templates.seed.version`: versión aplicada del catálogo; actualmente `3`.
+- `nextcards.settings.v1`: configuración versionada.
+- `nextcards.cardsViewMode`: modo de visualización del directorio.
+- `nextcards_analytics_events` y `nextcards_analytics_schema_version`: analítica local y versión de su esquema.
 
 Las recargas no vuelven a insertar el seed. Las ediciones, eliminaciones, nuevas tarjetas, cambios de estado y cambios de plantilla permanecen en `localStorage`. La migración del catálogo incorpora diseños de sistema nuevos sin eliminar variantes personalizadas ni cambiar la plantilla predeterminada elegida. Las tarjetas con plantilla explícita conservan su diseño; las nuevas y las que no tengan una referencia válida usan la predeterminada como fallback seguro. La migración inicial de empleados elimina únicamente las tres tarjetas demo cuando coinciden exactamente con sus firmas originales; cualquier tarjeta modificada o creada manualmente se conserva.
 

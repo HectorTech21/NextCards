@@ -112,7 +112,7 @@ export function createActionButton({
   const normalizedType = visualType(type);
   const visibleLabel = String(label || DEFAULT_LABELS[normalizedType]);
   const isLink = interactive && Boolean(href);
-  const element = document.createElement(isLink ? "a" : "button");
+  const element = document.createElement(isLink ? "a" : interactive ? "button" : "span");
   element.className = `card-action card-action--${normalizedType}`;
   element.dataset.actionType = normalizedType;
   if (id) element.id = id;
@@ -123,14 +123,17 @@ export function createActionButton({
       element.target = resolvedTarget;
       if (resolvedTarget === "_blank") element.rel = "noopener noreferrer";
     }
-  } else {
+  } else if (interactive) {
     element.type = "button";
   }
-  element.setAttribute("aria-label", ariaLabel || visibleLabel);
-  if (eventType) element.dataset.analyticsEvent = eventType;
+  if (interactive) {
+    element.setAttribute("aria-label", ariaLabel || visibleLabel);
+    if (eventType) element.dataset.analyticsEvent = eventType;
+  }
   if (!interactive) {
     element.dataset.previewAction = normalizedType;
     element.title = `Vista previa: ${visibleLabel}`;
+    element.setAttribute("aria-hidden", "true");
   }
   if (disabled) {
     element.classList.add("is-disabled");

@@ -1,9 +1,9 @@
-import {cardService,isValidHttpUrl} from "./cards.js?v=1.9.0";
-import {getPublicCardUrl,getSourcedPublicCardUrl} from "./card-export.js";
+import {cardService,isValidHttpUrl} from "./cards.js?v=1.10.1";
+import {canDisplayPublicCard,getPublicCardUrl,getSourcedPublicCardUrl} from "./card-export.js?v=1.10.1";
 import {copyText,shareCard} from "./card-sharing.js?v=1.3.1";
-import {renderCardPreview} from "./preview.js?v=1.7.0";
+import {renderCardPreview} from "./preview.js?v=1.10.1";
 import {buildQrSvg,renderQrSvg} from "./qr-code.js?v=1.3.1";
-import {formatPersonName,settingsService} from "./settings-store.js?v=1.9.0";
+import {formatPersonName,settingsService} from "./settings-store.js?v=1.10.1";
 import {templateService} from "./templates-store.js?v=1.7.0";
 import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
 import {createCompletenessContext,evaluateCardCompleteness} from "./card-completeness.js?v=1.9.0";
@@ -31,7 +31,7 @@ function initials(card) {
 }
 
 function validPublicUrl(card, source = "") {
-  if (!card?.slug) return "";
+  if (!card?.slug || !canDisplayPublicCard(card, source || "direct")) return "";
   try {
     return source ? getSourcedPublicCardUrl(card, source) : getPublicCardUrl(card);
   } catch {
@@ -126,13 +126,22 @@ function renderDetails(card, templateName, publicUrl) {
   );
 }
 
-function setUrlAvailability(available) {
-  ["quick-view-open", "quick-view-copy", "quick-view-share", "quick-view-download-qr"].forEach(id => {
+function setUrlAvailability({publicUrl="",previewUrl="",status=""}={}) {
+  const publicAvailable=Boolean(publicUrl),previewAvailable=Boolean(previewUrl);
+  const openButton=byId("quick-view-open");
+  openButton.disabled=!previewAvailable;
+  openButton.title=previewAvailable?"":"La tarjeta desactivada no admite vista previa pública.";
+  byId("quick-view-open-label").textContent=status==="draft"?"Abrir vista previa":"Abrir tarjeta";
+  ["quick-view-copy", "quick-view-share", "quick-view-download-qr"].forEach(id => {
     const button = byId(id);
-    button.disabled = !available;
-    button.title = available ? "" : "La URL pública no está disponible.";
+    button.disabled = !publicAvailable;
+    button.title = publicAvailable ? "" : "Disponible cuando la tarjeta esté activa.";
   });
-  byId("quick-view-url-unavailable").hidden = available;
+  const unavailable=byId("quick-view-url-unavailable");
+  unavailable.textContent=status==="draft"
+    ?"Publica la tarjeta para copiar, compartir o generar su QR."
+    :"La tarjeta desactivada no tiene un enlace público disponible.";
+  unavailable.hidden=publicAvailable;
 }
 
 function renderQr(card, settings, qrUrl, displayName) {
@@ -160,6 +169,7 @@ function populate(card) {
   const exactTemplate = templateService.getTemplateById(card.template);
   const templateName = exactTemplate?.name || "Plantilla predeterminada";
   const publicUrl = validPublicUrl(card);
+  const previewUrl = validPublicUrl(card, "admin_preview");
   const qrUrl = validPublicUrl(card, "qr");
 
   byId("quick-view-description").textContent = `Resumen administrativo de la tarjeta de ${displayName}.`;
@@ -178,7 +188,7 @@ function populate(card) {
   renderQuickViewCompleteness(card);
   renderCardPreview(byId("quick-view-card-preview"), card);
   renderQr(card, settings, qrUrl, displayName);
-  setUrlAvailability(Boolean(publicUrl));
+  setUrlAvailability({publicUrl,previewUrl,status:card.status});
   callbacks.renderIcons(byId("quick-view-overlay"));
 }
 
@@ -252,8 +262,9 @@ async function handleAction(action) {
   const settings = settingsService.getSettings();
   if (action === "edit") {
     const id = card.id;
+    const returnFocusTo = previousFocus?.isConnected ? previousFocus : null;
     closeQuickView({restoreFocus: false, immediate: true});
-    callbacks.openEditor(id);
+    callbacks.openEditor(id, {returnFocusTo});
     return;
   }
   if (action === "open") {
@@ -288,8 +299,9 @@ function openCompletenessTarget(target) {
   const card = currentCard();
   if (!card || !target) return;
   const id = card.id;
+  const returnFocusTo = previousFocus?.isConnected ? previousFocus : null;
   closeQuickView({restoreFocus: false, immediate: true});
-  callbacks.openEditor(id, {focusField: target});
+  callbacks.openEditor(id, {focusField: target,returnFocusTo});
 }
 
 export function setupQuickView({showToast, renderIconElements, openCardEditor, openPremiumQr} = {}) {

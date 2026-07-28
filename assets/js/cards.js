@@ -1,6 +1,6 @@
 import {storage} from "./storage.js?v=1.9.0";
 import {templateService} from "./templates-store.js?v=1.7.0";
-import {settingsService} from "./settings-store.js?v=1.9.0";
+import {settingsService} from "./settings-store.js?v=1.10.1";
 import {DEFAULT_PHOTO_FRAME,normalizeCardPhotoFrame} from "./photo-frame.js?v=1.6.0";
 import {deletePhotoIfUnused,normalizeCardPhotoFields} from "./photo-storage.js?v=1.6.0";
 import {normalizeCardQrStyle} from "./qr-premium-core.js?v=1.8.1";
@@ -58,7 +58,7 @@ export const cardService = {
   },
   toggleDisabled(id){
     const card=this.get(id); if(!card) return;
-    return this.update(id,{status:card.status==="disabled"?"draft":"disabled"});
+    return this.update(id,{status:card.status==="disabled"?"active":"disabled"});
   },
   slugExists(slug,exceptId=""){ const normalized=String(slug).toLowerCase();return this.all().some(card=>String(card.slug).toLowerCase()===normalized&&card.id!==exceptId); },
   query({search="",department="",status=""}={}){

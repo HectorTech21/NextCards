@@ -1,18 +1,18 @@
 import {storage} from "./storage.js?v=1.9.0";
-import {cardService} from "./cards.js?v=1.9.0";
-import {setupEditor,openEditor,deleteFromDashboard} from "./editor.js?v=1.9.0";
-import {getSourcedPublicCardUrl} from "./card-export.js";
+import {cardService} from "./cards.js?v=1.10.1";
+import {setupEditor,openEditor,deleteFromDashboard} from "./editor.js?v=1.10.1";
+import {canDisplayPublicCard,getSourcedPublicCardUrl} from "./card-export.js?v=1.10.1";
 import {copyText} from "./card-sharing.js?v=1.3.1";
-import {openQuickView,refreshQuickView,setupQuickView} from "./quick-view.js?v=1.9.0";
-import {setupTemplatesUI,renderTemplatesSection} from "./templates-ui.js?v=1.8.0";
+import {openQuickView,refreshQuickView,setupQuickView} from "./quick-view.js?v=1.10.1";
+import {setupTemplatesUI,renderTemplatesSection} from "./templates-ui.js?v=1.10.1";
 import {templateService} from "./templates-store.js?v=1.7.0";
-import {setupAnalyticsUI,renderAnalyticsSection} from "./analytics-ui.js?v=1.9.0";
-import {applySettingsToDocument,formatPersonName,getDefaultSettings,settingsService} from "./settings-store.js?v=1.9.0";
-import {isSettingsDirty,renderSettingsSection,requestSettingsLeave,setupSettingsUI} from "./settings-ui.js?v=1.8.0";
+import {setupAnalyticsUI,renderAnalyticsSection} from "./analytics-ui.js?v=1.10.1";
+import {applySettingsToDocument,formatPersonName,getDefaultSettings,settingsService} from "./settings-store.js?v=1.10.1";
+import {isSettingsDirty,renderSettingsSection,requestSettingsLeave,setupSettingsUI} from "./settings-ui.js?v=1.10.2";
 import {createPhotoFrameImage} from "./photo-frame.js?v=1.6.0";
 import {clearAllPhotos,pruneUnusedPhotos} from "./photo-storage.js?v=1.6.0";
 import {CARDS_VIEW_STORAGE_KEY,DEFAULT_LIST_SORT,readCardsViewMode,sortCardsForList,writeCardsViewMode} from "./cards-view.js?v=1.9.0";
-import {openQrPremium,setupQrPremium} from "./qr-premium.js?v=1.8.4";
+import {openQrPremium,setupQrPremium} from "./qr-premium.js?v=1.10.1";
 import {
   buildCompletenessSummary,
   createCompletenessContext,
@@ -104,6 +104,12 @@ function createButton(label,className,action,id,icon){
   const button=node("button",className);button.type="button";button.dataset.action=action;if(id)button.dataset.id=id;if(icon)button.append(makeIcon(icon));if(label)button.append(document.createTextNode(label));return button;
 }
 
+function setButtonAvailability(button,available,unavailableTitle){
+  button.disabled=!available;
+  button.title=available?"":unavailableTitle;
+  return button;
+}
+
 function createCardMenu(card,displayName,entries,context){
   const menuButton=createButton("","card-menu-button","toggle-menu",card.id,"more");
   const menu=node("div","card-menu");
@@ -113,8 +119,9 @@ function createCardMenu(card,displayName,entries,context){
   menuButton.setAttribute("aria-expanded","false");
   menuButton.setAttribute("aria-haspopup","menu");
   menuButton.setAttribute("aria-controls",menuId);
-  entries.forEach(([label,action])=>{
+  entries.forEach(([label,action,unavailableReason=""])=>{
     const button=createButton(label,action==="delete"?"danger":"",action,card.id);
+    if(unavailableReason)setButtonAvailability(button,false,unavailableReason);
     button.setAttribute("role","menuitem");menu.append(button);
   });
   return {menuButton,menu};
@@ -122,11 +129,14 @@ function createCardMenu(card,displayName,entries,context){
 
 function createCard(card,settings,completeness){
   const displayName=formatPersonName(card,settings);
+  const published=canDisplayPublicCard(card,"direct"),previewAvailable=canDisplayPublicCard(card,"admin_preview");
+  const publicationReason="Disponible cuando la tarjeta esté activa.";
+  const previewReason="Reactiva la tarjeta para abrir su vista previa.";
   const article=node("article","employee-card"),cover=node("div","employee-cover");
   cover.dataset.cardMenuHost="";
   const quickTrigger=createButton("","quick-view-trigger","quick-view",card.id);quickTrigger.setAttribute("aria-label",`Abrir vista rápida de ${displayName}`);quickTrigger.title="Vista rápida";
   const logo=node("img","employee-logo");logo.src="assets/img/logos/lognext-negative.svg";logo.alt="";logo.decoding="async";logo.addEventListener("error",()=>logo.remove(),{once:true});
-  const {menuButton,menu}=createCardMenu(card,displayName,[["Vista rápida","quick-view"],["Descargar QR","qr-premium"],["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]],"grid");
+  const {menuButton,menu}=createCardMenu(card,displayName,[["Vista rápida","quick-view"],["Descargar QR","qr-premium",published?"":publicationReason],["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]],"grid");
   cover.append(quickTrigger,logo,menuButton,menu);
   if(card.photo&&card.visibleFields?.photo!==false){const frame=node("div","employee-photo");const img=createPhotoFrameImage(card.photo,{alt:`Foto de ${displayName}`,frame:card.photoFrame,legacyPosition:card.photoPosition,loading:"lazy",onLoad:()=>recordPhotoQuality(card.photo,true),onError:()=>{recordPhotoQuality(card.photo,false);frame.replaceWith(node("div","employee-initials",initials(card)))}});frame.append(img);cover.append(frame)}else cover.append(node("div","employee-initials",initials(card)));
   const info=node("div","employee-info"),top=node("div","employee-info-top");
@@ -139,8 +149,11 @@ function createCard(card,settings,completeness){
   if(!contacts.children.length)contacts.append(node("span","contact-hidden","Datos de contacto ocultos"));
   info.append(contacts);
   const actions=node("div","card-actions");
-  actions.append(createButton("Editar","button button-primary","edit",card.id),createButton("Ver tarjeta","button button-secondary","view",card.id),createButton("","icon-button","copy",card.id,"copy"));
-  actions.lastChild.setAttribute("aria-label",`Copiar enlace de ${displayName}`);
+  const edit=createButton("Editar","button button-primary","edit",card.id);
+  const view=setButtonAvailability(createButton(published?"Ver tarjeta":"Vista previa","button button-secondary","view",card.id),previewAvailable,previewReason);
+  const copy=setButtonAvailability(createButton("","icon-button","copy",card.id,"copy"),published,publicationReason);
+  copy.setAttribute("aria-label",`Copiar enlace de ${displayName}`);
+  actions.append(edit,view,copy);
   info.append(actions);article.append(cover,info);return article;
 }
 
@@ -169,6 +182,9 @@ function createListCell(className,label){const cell=node("td",className);cell.da
 
 function createListRow(card,settings,completeness){
   const displayName=formatPersonName(card,settings)||"Persona sin nombre";
+  const published=canDisplayPublicCard(card,"direct"),previewAvailable=canDisplayPublicCard(card,"admin_preview");
+  const publicationReason="Disponible cuando la tarjeta esté activa.";
+  const previewReason="Reactiva la tarjeta para abrir su vista previa.";
   const row=node("tr","cards-list-row");row.dataset.cardId=card.id;row.tabIndex=0;row.setAttribute("aria-label",`Tarjeta de ${displayName}. Pulsa Intro para abrir la vista rápida.`);
 
   const person=createListCell("cards-list-person-cell","Persona"),personWrap=node("span","cards-list-person");
@@ -194,7 +210,7 @@ function createListRow(card,settings,completeness){
   const actionCell=createListCell("cards-list-actions-cell","Acciones"),actions=node("div","cards-list-actions");actions.dataset.cardMenuHost="";
   const quick=createButton("","button button-secondary list-primary-action","quick-view",card.id,"eye");quick.title="Vista rápida";quick.setAttribute("aria-label",`Vista rápida de ${displayName}`);quick.append(node("span","list-action-label","Vista rápida"));
   const edit=createButton("","button button-primary list-primary-action","edit",card.id,"edit");edit.title="Editar";edit.setAttribute("aria-label",`Editar tarjeta de ${displayName}`);edit.append(node("span","list-action-label","Editar"));
-  const {menuButton,menu}=createCardMenu(card,displayName,[["Ver tarjeta","view"],["Copiar enlace","copy"],["Descargar QR","qr-premium"],["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]],"list");
+  const {menuButton,menu}=createCardMenu(card,displayName,[[published?"Ver tarjeta":"Vista previa","view",previewAvailable?"":previewReason],["Copiar enlace","copy",published?"":publicationReason],["Descargar QR","qr-premium",published?"":publicationReason],["Cambiar plantilla","template"],["Duplicar","duplicate"],[card.status==="disabled"?"Reactivar":"Desactivar","disable"],["Eliminar","delete"]],"list");
   menuButton.classList.add("list-card-menu-button");actions.append(quick,edit,menuButton,menu);actionCell.append(actions);
   row.append(person,role,team,email,status,quality,template,updated,actionCell);return row;
 }
@@ -272,13 +288,15 @@ function download(content,filename,type){
   const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement("a");a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 async function copyCardLink(id){
-  const card=cardService.get(id);const settings=readSettings();const url=getSourcedPublicCardUrl(card,"copied_link");
+  const card=cardService.get(id);if(!canDisplayPublicCard(card,"copied_link")){showToast("Publica la tarjeta antes de copiar su enlace.","error");return false}
+  const settings=readSettings();const url=getSourcedPublicCardUrl(card,"copied_link");
   if(settings.privacy.confirmBeforeCopy&&!window.confirm(`¿Copiar el enlace de ${formatPersonName(card,settings)}?`))return;
-  await copyText(url);showToast("Enlace copiado.");
+  await copyText(url);showToast("Enlace copiado.");return true;
 }
 
 function openPremiumQrForCard(card,opener=document.activeElement){
   if(!card){showToast("No se ha encontrado la tarjeta.","error");return false}
+  if(!canDisplayPublicCard(card,"qr")){showToast("Publica la tarjeta antes de generar su QR premium.","error");return false}
   return openQrPremium({
     card,
     url:getSourcedPublicCardUrl(card,"qr"),
@@ -309,7 +327,11 @@ async function handleAction(action,id,target){
     openPremiumQrForCard(card,opener);
   }
   if(action==="template"){openEditor(id,{focusTemplate:true});showToast("Selecciona una plantilla y guarda los cambios.")}
-  if(action==="view"){const card=cardService.get(id);window.open(getSourcedPublicCardUrl(card,"admin_preview"),"_blank","noopener,noreferrer")}
+  if(action==="view"){
+    const card=cardService.get(id);
+    if(!canDisplayPublicCard(card,"admin_preview"))showToast("Reactiva la tarjeta para abrir su vista previa.","error");
+    else window.open(getSourcedPublicCardUrl(card,"admin_preview"),"_blank","noopener,noreferrer");
+  }
   if(action==="copy")copyCardLink(id).catch(()=>showToast("No se pudo copiar el enlace.","error"));
   if(action==="duplicate"){cardService.duplicate(id);showToast("Tarjeta duplicada como borrador.");refreshDepartments();renderDashboard()}
   if(action==="disable"){cardService.toggleDisabled(id);showToast("Estado de la tarjeta actualizado.");renderDashboard()}
@@ -358,6 +380,7 @@ globalThis.addEventListener?.("storage",event=>{
 document.querySelector("#menu-toggle").addEventListener("click",event=>{const open=sidebar.classList.toggle("open");event.currentTarget.setAttribute("aria-expanded",open)});
 function activateSection(section,item=document.querySelector(`.nav-item[data-section="${section}"]`)){
   if(!VALID_SECTIONS.has(section)){section="cards";item=document.querySelector('.nav-item[data-section="cards"]')}
+  const sectionChanged=currentSection!==section;
   document.querySelector("#cards-view").hidden=section!=="cards";
   document.querySelector("#templates-view").hidden=section!=="templates";
   document.querySelector("#stats-view").hidden=section!=="stats";
@@ -369,6 +392,14 @@ function activateSection(section,item=document.querySelector(`.nav-item[data-sec
   if(section==="stats")renderAnalyticsSection();
   if(section==="settings")renderSettingsSection();
   sidebar.classList.remove("open");
+  document.querySelector("#menu-toggle").setAttribute("aria-expanded","false");
+  if(sectionChanged){
+    const resetSectionScroll=()=>{
+      const scrollRoot=document.scrollingElement||document.documentElement;
+      scrollRoot.scrollTop=0;scrollRoot.scrollLeft=0;globalThis.scrollTo?.({top:0,left:0,behavior:"instant"});
+    };
+    resetSectionScroll();requestAnimationFrame(resetSectionScroll);setTimeout(resetSectionScroll,50);
+  }
 }
 document.querySelectorAll(".nav-item").forEach(item=>item.addEventListener("click",()=>{
   const section=item.dataset.section;

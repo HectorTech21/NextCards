@@ -27,7 +27,8 @@ assert.deepEqual(actionRowPlan(8),[4,4]);
 assert.deepEqual(actionRowPlan(9),[3,3,3]);
 assert.deepEqual(actionRowPlan(10),[4,3,3]);
 assert.deepEqual(actionRowPlan(13),[4,3,3,3]);
-assert.match(component, /createElement\(isLink \? "a" : "button"\)/, "Las acciones deben usar elementos semánticos.");
+assert.match(component, /createElement\(isLink \? "a" : interactive \? "button" : "span"\)/, "Las acciones interactivas deben usar enlaces o botones y las previews, elementos neutros.");
+assert.match(component, /setAttribute\("aria-hidden", "true"\)/, "Las acciones decorativas de preview no deben entrar en el árbol accesible.");
 assert.match(component, /noopener noreferrer/, "Los enlaces externos deben estar protegidos.");
 assert.match(component, /aria-label/, "Las acciones deben tener nombre accesible.");
 assert.match(component, /lognext-symbol-positive\.svg/, "Website debe usar el símbolo oficial de Lognext.");
@@ -48,7 +49,8 @@ assert.match(styles, /action-row-columns-4/, "Las filas de cuatro acciones deben
 
 assert.match(preview, /renderActionGrid\(actions,orderedActions/, "La tarjeta debe reunir todas las acciones en un único contenedor.");
 assert.doesNotMatch(preview, /renderActionGrid\(contact/, "Contacto y redes no deben crear filas independientes.");
-assert.match(preview, /interactive=false/, "La preview debe ser segura por defecto.");
+assert.match(preview, /Boolean\(options\.interactive\)/, "La preview debe ser segura por defecto.");
+assert.match(preview, /interactive\?"h1":"div"/, "Solo la tarjeta pública interactiva debe aportar el H1 de la persona.");
 assert.match(publicCard, /renderCardPreview\(publicCard,card,null,null,\{interactive:true\}\)/, "La tarjeta pública debe habilitar enlaces reales.");
 assert.match(publicCard, /settings\.cards\.actionOrder/, "La página pública debe respetar el orden configurado.");
 assert.match(publicCard, /setActionFeedback\(element,"Copiado"\)/, "Copiar debe cambiar temporalmente su etiqueta.");
